@@ -660,6 +660,15 @@ def esc(s):
     return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
 
 
+def _tag_slug(tag_str):
+    """URL-safe slug for a tag (e.g. 'live cam' -> 'live-cam')."""
+    import re
+    s = str(tag_str).lower().strip()
+    s = re.sub(r'[^a-z0-9\s-]', '', s)
+    s = re.sub(r'[\s_]+', '-', s)
+    return s.strip('-') or 'tag'
+
+
 def header_html(active_link="/"):
     return f'''<header>
   <a href="/" class="logo">MyGirlHub</a>
@@ -978,7 +987,7 @@ def render_homepage(videos, categories, page=1):
 # ── VIDEO PAGE ────────────────────────────────────────────────────────
 def render_video_page(v, all_videos=None):
     tags_html = ''.join(
-        f'<a class="tag" href="/category/{v["performer_slug"]}/">{esc(t)}</a>'
+        f'<a class="tag" href="/tag/{_tag_slug(t)}/">{esc(t)}</a>'
         for t in v.get('tags', [])
     )
     desc = esc(v.get('description', v['title']))
@@ -1163,9 +1172,100 @@ def render_category_page(performer, performer_slug, videos, page=1):
 </html>'''
 
 
+# ── TAG PAGE ──────────────────────────────────────────────────────────
+def render_tag_page(tag_name, tag_slug, videos, page=1):
+    """Gallery of all videos that have this tag (e.g. /tag/live-cam/)."""
+    total = len(videos)
+    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * PER_PAGE
+    page_videos = videos[start:start + PER_PAGE]
+
+    cards = '\n'.join(video_card_html(v, priority=(i < 6)) for i, v in enumerate(page_videos))
+    pagination = _pagination_html(page, total_pages, f"/tag/{tag_slug}/")
+    page_suffix = f" - Page {page} of {total_pages}" if page > 1 else ""
+    page_title = f"Tag: {esc(tag_name)} | MyGirlHub{page_suffix}"
+    canonical = f"{SITE_URL}/tag/{tag_slug}/" if page == 1 else f"{SITE_URL}/tag/{tag_slug}/page/{page}/"
+
+    prev_link = ""
+    next_link = ""
+    if page > 1:
+        prev_url = f"{SITE_URL}/tag/{tag_slug}/" if page == 2 else f"{SITE_URL}/tag/{tag_slug}/page/{page-1}/"
+        prev_link = f'<link rel="prev" href="{prev_url}">'
+    if page < total_pages:
+        next_link = f'<link rel="next" href="{SITE_URL}/tag/{tag_slug}/page/{page+1}/">'
+
+    return f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{page_title}</title>
+<meta name="description" content="Watch free cam videos tagged {esc(tag_name)}. MyGirlHub - free camgirl video hub.">
+<link rel="canonical" href="{canonical}">
+{prev_link}
+{next_link}
+<meta property="og:title" content="Tag: {esc(tag_name)} | MyGirlHub">
+<meta property="og:description" content="Videos tagged {esc(tag_name)}.">
+<meta property="og:url" content="{canonical}">
+<meta property="og:type" content="website">
+{GA_HEAD}
+{BUNNY_CDN_PRECONNECT}
+{HEAD_CSS}
+</head>
+{BODY_START}
+{header_html()}
+<div class="page-wrap">
+<div class="main-content">
+
+  <div class="breadcrumb">
+    <a href="/">Home</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>Tag: {esc(tag_name)}</span>
+  </div>
+
+  <p class="category-intro">Videos tagged &quot;{esc(tag_name)}&quot;. Watch free cam clips and highlights.</p>
+
+  <div class="content-topbar">
+    <div class="content-topbar-left">
+      <h1 class="section-label">Tag: {esc(tag_name)}</h1>
+      <span class="count-badge">Showing {start+1}-{min(start+PER_PAGE, total)} of {total}</span>
+    </div>
+  </div>
+
+  <div class="video-grid" id="grid">{cards}</div>
+
+  {pagination}
+
+</div>
+{sidebar_html()}
+</div>
+{footer_html()}
+<button id="back-to-top" aria-label="Back to top">
+  <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+<script>
+(function(){{
+  var btn = document.getElementById('back-to-top');
+  if(btn){{
+    window.addEventListener('scroll', function(){{
+      btn.classList.toggle('visible', window.scrollY > 400);
+    }}, {{passive:true}});
+    btn.addEventListener('click', function(){{
+      window.scrollTo({{top:0, behavior:'smooth'}});
+    }});
+  }}
+}})();
+{THUMB_PREVIEW_SCRIPT}
+{SHUFFLE_GRID_SCRIPT}
+</script>
+</body>
+</html>'''
+
+
 # ── SITEMAP & ROBOTS ───────────────────────────────────────────────────
-def render_sitemap(videos, category_slugs=None):
-    """Generate sitemap.xml from videos list. Includes home, category, video and legal URLs. lastmod: today for home/categories, video date for videos. category_slugs: if set, only include these category URLs (e.g. from get_categories to exclude junk)."""
+def render_sitemap(videos, category_slugs=None, tag_slugs=None):
+    """Generate sitemap.xml. Includes home, category, tag, video and legal URLs. lastmod: today for home/categories/tags, video date for videos. category_slugs/tag_slugs: if set, only include those URLs."""
     from xml.etree import ElementTree as ET
     from datetime import datetime
     urlset = ET.Element('urlset', xmlns='http://www.sitemaps.org/schemas/sitemap/0.9')
@@ -1190,6 +1290,8 @@ def render_sitemap(videos, category_slugs=None):
             if category_slugs is None or v['performer_slug'] in category_slugs:
                 add_url(f"/category/{v['performer_slug']}/", lastmod=today)
         add_url(f"/videos/{v['slug']}/", lastmod=v.get('date') or today)
+    for slug in (tag_slugs or []):
+        add_url(f"/tag/{slug}/", lastmod=today)
     for path in ('/privacy.html', '/2257.html', '/content-removal.html', '/terms.html', '/contact.html'):
         add_url(path, lastmod=today)
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(urlset, encoding='unicode', default_namespace='')

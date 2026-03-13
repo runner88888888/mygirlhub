@@ -18,7 +18,8 @@ The performer_slug is always slugify(clean_performer(name)).
 import os, json, re, logging
 from templates import (
     render_homepage, render_video_page,
-    render_category_page, render_sitemap, render_robots,
+    render_category_page, render_tag_page,
+    render_sitemap, render_robots,
     PER_PAGE
 )
 
@@ -173,6 +174,38 @@ def get_categories(videos):
     return list(cats.values())
 
 
+def get_tags(videos):
+    """
+    Build tag list from all videos. Each unique tag (by slug) appears once.
+    Tags that slugify to the same (e.g. 'Live Cam' and 'live cam') are merged.
+    """
+    by_slug = {}
+    for v in videos:
+        for t in v.get('tags') or []:
+            if not t or not str(t).strip():
+                continue
+            slug = slugify(str(t).strip())
+            if not slug:
+                continue
+            if slug not in by_slug:
+                by_slug[slug] = {'name': str(t).strip(), 'slug': slug, 'count': 0}
+            by_slug[slug]['count'] += 1
+    return list(by_slug.values())
+
+
+def _build_tag_pages(output_dir, tag, tag_videos):
+    slug = tag['slug']
+    name = tag['name']
+    total_pages = max(1, (len(tag_videos) + PER_PAGE - 1) // PER_PAGE)
+    for page in range(1, total_pages + 1):
+        html = render_tag_page(name, slug, tag_videos, page=page)
+        _ensure_age_gate_in_html(html, f"tag/{slug} page {page}")
+        if page == 1:
+            write(f"{output_dir}/tag/{slug}/index.html", html)
+        else:
+            write(f"{output_dir}/tag/{slug}/page/{page}/index.html", html)
+
+
 # ── FILE WRITING ──────────────────────────────────────────────────────
 
 def write(path, content):
@@ -256,7 +289,12 @@ def build_site(output_dir, data_path):
         cat_videos = [v for v in videos if v['performer_slug'] == cat['slug']]
         _build_category_pages(output_dir, cat, cat_videos)
 
-    write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}))
+    tags = get_tags(videos)
+    for tag in tags:
+        tag_videos = [v for v in videos if tag['slug'] in [slugify(str(t).strip()) for t in (v.get('tags') or []) if t]]
+        _build_tag_pages(output_dir, tag, tag_videos)
+
+    write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}, tag_slugs={t['slug'] for t in tags}))
     write(f"{output_dir}/robots.txt", render_robots())
     _write_legal_pages(output_dir)
 
@@ -295,7 +333,12 @@ def add_video_and_rebuild(output_dir, data_path, new_video):
         cat = {'name': new_video['performer'], 'slug': slug}
         _build_category_pages(output_dir, cat, cat_videos)
 
-    write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}))
+    tags = get_tags(videos)
+    for tag in tags:
+        tag_videos = [v for v in videos if tag['slug'] in [slugify(str(t).strip()) for t in (v.get('tags') or []) if t]]
+        _build_tag_pages(output_dir, tag, tag_videos)
+
+    write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}, tag_slugs={t['slug'] for t in tags}))
 
     log.info(f"Site updated: {new_video['title']}")
     return True
