@@ -224,9 +224,10 @@ def main():
     log.info("MIGRATION COMPLETE")
     log.info("━" * 50)
 
-    # Trigger deploy workflow so NAS runner rsyncs site to Hostinger (if GITHUB_TOKEN set)
+    # Trigger deploy workflow so NAS runner rsyncs site to Hostinger (if GITHUB_TOKEN set).
+    # If you see "exceeded max time awaiting a runner" in Actions: the self-hosted runner on the NAS is offline — fix it or use Portainer rebuild instead (see PORTAINER.md).
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_PAT")
-    if token:
+    if token and not os.environ.get("SKIP_DEPLOY_WORKFLOW"):
         try:
             r = requests.post(
                 "https://api.github.com/repos/runner88888888/mygirlhub/actions/workflows/deploy.yml/dispatches",

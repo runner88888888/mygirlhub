@@ -13,9 +13,10 @@ Usage (in Portainer console):
 All credentials are read from environment variables (set in your .env / stack).
 """
 
-import os, sys, logging, paramiko
+import os, sys, logging, subprocess
 from pathlib import Path
 from sitebuilder import build_site
+import paramiko
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,31 @@ REMOTE_ROOT = os.environ.get("REMOTE_ROOT", "/home/u426197676/domains/mygirlhub.
 
 # File extensions to upload (skip videos.json source data and other non-web files)
 UPLOAD_EXTS = {".html", ".xml", ".txt", ".css", ".js", ".ico", ".png", ".jpg", ".svg", ".webp"}
+
+
+def git_pull_app_dir():
+    """Run 'git pull' in the app (repo) directory so the NAS has latest code. No-op if git missing or not a repo."""
+    app_dir = os.path.dirname(os.path.abspath(__file__)) or "."
+    if not os.path.isdir(os.path.join(app_dir, ".git")):
+        return
+    try:
+        r = subprocess.run(
+            ["git", "pull", "--ff-only"],
+            cwd=app_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if r.returncode == 0:
+            log.info("git pull: %s", (r.stdout or "").strip() or "already up to date")
+        else:
+            log.warning("git pull failed: %s", (r.stderr or r.stdout or "").strip())
+    except FileNotFoundError:
+        log.info("git not installed in container — skipping pull (upload files or use image with git)")
+    except subprocess.TimeoutExpired:
+        log.warning("git pull timed out — continuing with existing code")
+    except Exception as e:
+        log.warning("git pull error: %s — continuing with existing code", e)
 
 
 def sftp_deploy_all(local_root, remote_root):
@@ -98,6 +124,8 @@ def sftp_deploy_all(local_root, remote_root):
 
 
 def main():
+    git_pull_app_dir()
+
     if not os.path.exists(DATA_FILE):
         log.error(f"videos.json not found at: {DATA_FILE}")
         log.error("Run builder.py first to create it, or copy an existing videos.json to /site/")
