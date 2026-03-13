@@ -25,6 +25,12 @@ from templates import (
 AGE_GATE_MARKER = 'id="age-gate"'
 log = logging.getLogger(__name__)
 
+# Category slugs we never expose (no category page, no pill). Videos are recategorised from description when possible.
+JUNK_CATEGORY_SLUGS = {
+    'screenrecording', 'mfcgoddessasian', 'linaresjesicabig',
+    'recording', 'screen', 'unknown',
+}
+
 
 # ── PERFORMER CLEANING ────────────────────────────────────────────────
 
@@ -117,15 +123,35 @@ def save_videos(data_path, videos):
         json.dump(videos, f, indent=2)
 
 
+def _first_word_from_description(desc):
+    """First word (no spaces) of description for recategorising junk performer data."""
+    if not desc:
+        return None
+    parts = str(desc).strip().split()
+    return parts[0] if parts else None
+
+
 def normalise_video(v):
     """
     Ensure a video dict has a clean single-word performer and matching slug.
     Safe to call on both new and existing records.
+    If current performer_slug is in JUNK_CATEGORY_SLUGS, try to recategorise
+    from the first word of description (rule: first word = model name = category).
     """
     raw   = v.get('performer', 'Unknown')
     clean = clean_performer(raw)
     v['performer']      = clean
     v['performer_slug'] = slugify(clean)
+
+    if v['performer_slug'] in JUNK_CATEGORY_SLUGS and v.get('description'):
+        first = _first_word_from_description(v['description'])
+        if first:
+            recat = clean_performer(first)
+            recat_slug = slugify(recat)
+            if recat_slug and recat_slug not in JUNK_CATEGORY_SLUGS:
+                v['performer'] = recat
+                v['performer_slug'] = recat_slug
+                log.debug("Recategorised video from description: %s -> %s", raw, recat)
     return v
 
 
@@ -133,10 +159,13 @@ def get_categories(videos):
     """
     Build category list. Groups by performer_slug so one performer = one
     category regardless of any historical name variations.
+    Junk category slugs are excluded (no category page or nav pill).
     """
     cats = {}
     for v in videos:
         slug = v['performer_slug']
+        if slug in JUNK_CATEGORY_SLUGS:
+            continue
         name = v['performer']
         if slug not in cats:
             cats[slug] = {'name': name, 'slug': slug, 'count': 0}
@@ -227,7 +256,7 @@ def build_site(output_dir, data_path):
         cat_videos = [v for v in videos if v['performer_slug'] == cat['slug']]
         _build_category_pages(output_dir, cat, cat_videos)
 
-    write(f"{output_dir}/sitemap.xml", render_sitemap(videos))
+    write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}))
     write(f"{output_dir}/robots.txt", render_robots())
     _write_legal_pages(output_dir)
 
@@ -261,11 +290,12 @@ def add_video_and_rebuild(output_dir, data_path, new_video):
     write(f"{output_dir}/videos/{new_video['slug']}/index.html", html)
 
     slug = new_video['performer_slug']
-    cat_videos = [v for v in videos if v['performer_slug'] == slug]
-    cat = {'name': new_video['performer'], 'slug': slug}
-    _build_category_pages(output_dir, cat, cat_videos)
+    if slug not in JUNK_CATEGORY_SLUGS:
+        cat_videos = [v for v in videos if v['performer_slug'] == slug]
+        cat = {'name': new_video['performer'], 'slug': slug}
+        _build_category_pages(output_dir, cat, cat_videos)
 
-    write(f"{output_dir}/sitemap.xml", render_sitemap(videos))
+    write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}))
 
     log.info(f"Site updated: {new_video['title']}")
     return True
@@ -274,50 +304,16 @@ def add_video_and_rebuild(output_dir, data_path, new_video):
 # ── LEGAL PAGES ───────────────────────────────────────────────────────
 
 def _write_legal_pages(output_dir):
-    from templates import HEAD_CSS, GA_HEAD, BODY_START, SITE_URL, header_html, footer_html
+    from templates import (
+        render_privacy,
+        render_2257,
+        render_dmca,
+        render_terms,
+        render_contact,
+    )
 
-    privacy = f'''<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy | MyGirlHub</title>
-<link rel="canonical" href="{SITE_URL}/privacy.html">
-{GA_HEAD}{HEAD_CSS}
-</head>
-{BODY_START}{header_html()}
-<div class="page-wrap"><div class="main-content" style="max-width:800px;">
-<h1 style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;margin-bottom:24px;">Privacy Policy</h1>
-<p style="color:var(--muted);font-size:12px;margin-bottom:24px;">Last updated: March 2026</p>
-<h2 style="font-size:16px;font-weight:600;margin-bottom:10px;color:var(--text2);">1. Information We Collect</h2>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">We collect anonymised usage data through Google Analytics (page views, session duration, device type). We do not collect personally identifiable information. Age verification uses a session cookie storing only a verification flag — no date of birth is retained.</p>
-<h2 style="font-size:16px;font-weight:600;margin-bottom:10px;color:var(--text2);">2. Cookies</h2>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">We use: (a) an age verification cookie (30-day expiry); (b) Google Analytics for aggregate traffic analysis. Disabling cookies will require re-verification of age on each visit.</p>
-<h2 style="font-size:16px;font-weight:600;margin-bottom:10px;color:var(--text2);">3. Third-Party Services</h2>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">Video content is embedded via Bunny.net CDN and live cam widgets via MyFreeCams. These services may set their own cookies. Affiliate links are governed by those sites' own privacy policies.</p>
-<h2 style="font-size:16px;font-weight:600;margin-bottom:10px;color:var(--text2);">4. Australian Privacy Act Compliance</h2>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">This site complies with the Australian Privacy Act 1988 and the Online Safety Act 2021. Age assurance is implemented before displaying explicit content. Contact us via the <a href="/content-removal.html" style="color:var(--accent);">DMCA / Content Removal</a> page for privacy enquiries.</p>
-</div></div>
-{footer_html()}
-</body></html>'''
-
-    c2257 = f'''<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>18 U.S.C. 2257 Compliance | MyGirlHub</title>
-<link rel="canonical" href="{SITE_URL}/2257.html">
-{GA_HEAD}{HEAD_CSS}
-</head>
-{BODY_START}{header_html()}
-<div class="page-wrap"><div class="main-content" style="max-width:800px;">
-<h1 style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;margin-bottom:24px;">18 U.S.C. 2257 Compliance</h1>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">MyGirlHub.com is a content aggregation and linking website. All videos are hosted by third-party providers including Bunny.net CDN and sourced from licensed cam platforms.</p>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">All models, actors, actresses and other persons appearing in any visual depiction of sexually explicit conduct were over the age of eighteen (18) at the time of creation of such depictions.</p>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">Records required by 18 U.S.C. §2257 and 28 C.F.R. §75 are maintained by the original content producers. MyGirlHub.com is not the primary producer of content displayed herein.</p>
-<p style="color:var(--text2);font-size:14px;line-height:1.75;margin-bottom:20px;">For removal requests: <a href="/content-removal.html" style="color:var(--accent);">DMCA / Content Removal</a>.</p>
-</div></div>
-{footer_html()}
-</body></html>'''
-
-    write(f"{output_dir}/privacy.html", privacy)
-    write(f"{output_dir}/2257.html", c2257)
+    write(f"{output_dir}/privacy.html", render_privacy())
+    write(f"{output_dir}/2257.html", render_2257())
+    write(f"{output_dir}/content-removal.html", render_dmca())
+    write(f"{output_dir}/terms.html", render_terms())
+    write(f"{output_dir}/contact.html", render_contact())

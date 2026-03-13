@@ -74,16 +74,24 @@ It maps to `/home/u426197676/domains/mygirlhub.com/public_html` on the server.
 
 ## Syncing Code Changes to the NAS
 
-After editing `templates.py`, `sitebuilder.py`, or any `.py` file, copy the updated files to:
+After editing `templates.py`, `sitebuilder.py`, `builder.py`, `publisher.py`, or any `.py` file, get the new code onto the NAS at:
 
 ```
 /share/Container/mygirlhub/
 ```
 
-Options:
-1. **Git** — `git pull` on the NAS inside that folder
-2. **Manual copy** — SCP / drag-drop via your NAS file manager
-3. **WinSCP / Filezilla** — connect to NAS and copy files across
+**Options:**
+
+1. **Git (recommended)** — On the NAS, in the repo folder, run `git pull`. Then run the rebuild so the container uses the latest code.  
+   (Optional reminder: *“After I push code, run `git pull` in `/share/Container/mygirlhub` (or your mygirlhub repo path), then run the rebuild so the container uses the latest code.”* This doc is the reference.
+
+2. **Manual upload** — Copy only the changed files (e.g. `templates.py`, `sitebuilder.py`, `builder.py`) to the NAS project folder via File Station, WinSCP, or drag‑drop. No git on the NAS needed.
+
+3. **WinSCP / Filezilla** — Same as manual: connect to the NAS and copy the updated files into the mygirlhub directory.
+
+**Minimum for template/code updates:** upload `templates.py` and `sitebuilder.py` (and `builder.py` / `publisher.py` if you changed them). Then run a rebuild so the new HTML is generated and deployed.
+
+**Keeping git in sync:** Commit and push from your PC (e.g. in Cursor). On the NAS, run `git pull` in the repo folder before rebuilding so the container runs the latest code.
 
 ---
 

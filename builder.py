@@ -87,7 +87,9 @@ def generate_content(title_hint):
 
     prompt = (
         "Adult cam video content (18+ legal). Attract viewers new to this kind of site. NEVER mention any platform names (MyFreeCams, MFC, etc.).\n\n"
-        f"Performer: {perf}. Video hint: {clean_hint}.\n\n"
+        f"Performer (model name): {perf}\n"
+        f"Video hint (often from filename, may contain junk): {clean_hint}\n\n"
+        "IMPORTANT — If the hint looks like a browser/recording filename (e.g. 'Chat Room', 'MyFreeCams', 'Google Chrome', dates), IGNORE the entire hint. Use ONLY the performer name. Your job is to invent a good title, description, and tags from the performer name alone. Do not copy or use any part of the filename except the model name.\n\n"
         "Return ONLY JSON: {\"title\":\"...\",\"description\":\"...\",\"tags\":[]}\n\n"
         "EXAMPLES — copy this style exactly:\n"
         '1. {"title": "gorgeous young woman with giant boobs", "description": "XAngelina gorgeous young woman with giant boobs plays with her pussy", "tags": ["gorgeous", "giant boobs", "masturbation"]}\n'

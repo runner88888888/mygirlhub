@@ -126,7 +126,9 @@ def generate_content(performer, hint):
     log.info(f"Generating content: {performer}")
     prompt = (
         "Adult cam video website (18+ legal). Attract viewers new to this kind of site. NEVER mention any platform names (MyFreeCams, MFC, etc.).\n\n"
-        f"Performer: {performer}\nVideo hint: {hint}\n\n"
+        f"Performer (model name): {performer}\n"
+        f"Video hint (often from filename): {hint}\n\n"
+        "IMPORTANT — If the hint looks like a browser/recording filename (e.g. contains 'Chat Room', 'MyFreeCams', 'Google Chrome', 'Chrome', dates like 2026-03-13, etc.), IGNORE the entire hint. Use ONLY the performer name. Your job is to invent a good title, description, and tags from the performer name alone. Do not copy or use any part of the filename except the model name.\n\n"
         "Return ONLY JSON: {\"title\":\"...\",\"description\":\"...\",\"tags\":[...]}\n\n"
         "EXAMPLES — copy this style exactly:\n"
         '1. {"title": "gorgeous young woman with giant boobs", "description": "XAngelina gorgeous young woman with giant boobs plays with her pussy", "tags": ["gorgeous", "giant boobs", "masturbation"]}\n'
@@ -263,7 +265,7 @@ def process_video(filepath):
     changed = [
         f"{CONFIG['output_dir']}/index.html",
         f"{CONFIG['output_dir']}/videos/{slug}/index.html",
-        f"{CONFIG['output_dir']}/category/{performer_slug}/index.html",
+        f"{CONFIG['output_dir']}/category/{perf_slug}/index.html",
         f"{CONFIG['output_dir']}/sitemap.xml",
         CONFIG["data_file"],
     ]

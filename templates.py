@@ -6,6 +6,12 @@ EVERY HTML PAGE (homepage, video, category) MUST include:
 - BODY_START (age gate + <body>) — used in render_homepage, render_video_page, render_category_page.
 - GA_HEAD, HEAD_CSS, header_html(), footer_html() / sidebar as appropriate.
 When adding a new page type, use BODY_START so the age gate is never left out.
+
+FIXES APPLIED 2026-03-12:
+- Removed thumb-static class and CSS (was causing black hover window)
+- Removed background:rgba(0,0,0,0.25) from .play-overlay (was causing black hover window)
+- Added document.body.style.overflow='' to unlock() (fixes desktop scroll lock after age gate)
+- Added render_privacy, render_2257, render_dmca, render_terms, render_contact legal page functions
 """
 
 AFFILIATE_LINK = "https://t.amyfc.link/260715/779/0?bo=2779,2778,2777,2776,2775&po=6533&aff_sub5=SF_006OG000004lmDN"
@@ -30,8 +36,12 @@ BANNER_HTML = '''<a href="{affiliate}" target="_blank" rel="noopener">
 
 WIDGET_HTML = '''<script src="https://crxcr2.com/cams-widget-ext/script?landing_id=260715&genders=f&providers=mfc&skin=1&containerAlignment=center&cols=1&rows=8&number=8&background=transparent&useFeed=1&animateFeed=1&smoothAnimation=1&ratio=1&verticalSpace=6px&horizontalSpace=0px&colorFilter=0&colorFilterStrength=0&AuxiliaryCSS=%0A&lang=en&token=7627ba70-1700-11f1-b290-61776f3048cd&api_key=0fbdaf6d973dcb2af01f87f20c9a16ba612468be61130e0e57f6bf9ca071fcc1"></script>'''
 
+# Bunny CDN preconnect for faster thumb/stream loads
+BUNNY_CDN_PRECONNECT = '<link rel="preconnect" href="https://vz-7f6a065c-ba7.b-cdn.net" crossorigin>'
+
 HEAD_CSS = '''
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -165,7 +175,7 @@ header{
   display:flex;align-items:center;gap:8px;
 }
 
-/* ── TOP BAR (count + sort) ── */
+/* ── TOP BAR ── */
 .content-topbar{
   display:flex;align-items:center;justify-content:space-between;
   margin-bottom:14px;
@@ -173,9 +183,6 @@ header{
   flex-wrap:wrap;
 }
 .content-topbar-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-.content-topbar-right .pagination{margin-top:0;}
-.content-topbar-right .page-btn{padding:5px 10px;font-size:12px;min-width:30px;}
-.content-topbar-right .page-ellipsis{font-size:12px;padding:5px 2px;}
 .section-label{
   font-family:'Bebas Neue',sans-serif;
   font-size:18px;letter-spacing:2px;
@@ -205,7 +212,6 @@ header{
 .cat-pill:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);}
 
 /* ── VIDEO GRID ── */
-/* Desktop: full remaining width, tight grid */
 .video-grid{
   display:grid;
   gap:10px;
@@ -229,9 +235,8 @@ header{
   box-shadow:0 6px 24px rgba(255,45,85,0.12);
 }
 .thumb-wrap{position:relative;padding-top:56.25%;overflow:hidden;background:#000;}
-.thumb-wrap img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
-.preview-gif{opacity:0;transition:opacity 0.25s;}
-.video-card:hover .preview-gif{opacity:1;}
+.thumb-wrap img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;transition:transform 0.3s ease;}
+.video-card:hover .thumb-wrap img{transform:scale(1.05);}
 .card-duration{
   position:absolute;bottom:7px;right:8px;
   background:rgba(0,0,0,0.78);
@@ -243,7 +248,6 @@ header{
   position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
   opacity:0;transition:opacity 0.18s;
-
 }
 .video-card:hover .play-overlay{opacity:1;}
 .play-circle{
@@ -251,7 +255,6 @@ header{
   background:rgba(255,45,85,0.92);
   border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  backdrop-filter:blur(4px);
 }
 .play-circle svg{width:16px;height:16px;fill:#fff;margin-left:2px;}
 .card-info{padding:9px 10px 11px;}
@@ -276,21 +279,19 @@ header{
   gap:6px;margin-top:32px;flex-wrap:wrap;
 }
 .page-btn{
-  background:#242424;border:1px solid #444;
-  color:#ccc;font-size:13px;font-weight:500;
+  background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text2);font-size:13px;font-weight:500;
   padding:8px 14px;border-radius:6px;
   transition:all 0.18s;cursor:pointer;
   min-width:40px;text-align:center;
   text-decoration:none;display:inline-block;
 }
-.page-btn:hover{border-color:var(--accent);color:var(--accent);background:#1a0a0f;}
+.page-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);}
 .page-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;}
 .page-btn.disabled{opacity:0.35;pointer-events:none;}
 .page-ellipsis{color:var(--muted);padding:8px 4px;font-size:13px;}
 
 /* ── VIDEO PAGE ── */
-.video-page-grid{display:flex;gap:20px;align-items:flex-start;}
-.video-page-main{flex:1;min-width:0;}
 .video-embed-wrap{
   position:relative;padding-top:56.25%;
   background:#000;border-radius:8px;overflow:hidden;
@@ -334,7 +335,7 @@ header{
 .cta-text span{color:var(--text2);font-size:12px;}
 .video-desc{color:var(--text2);font-size:13px;line-height:1.75;margin-bottom:24px;}
 
-/* ── SECTION TITLE (generic) ── */
+/* ── SECTION TITLE ── */
 .section-title{
   font-family:'Bebas Neue',sans-serif;
   font-size:17px;letter-spacing:2px;
@@ -354,6 +355,11 @@ header{
 .breadcrumb a{color:var(--muted);transition:color 0.2s;}
 .breadcrumb a:hover{color:var(--text);}
 .breadcrumb-sep{color:var(--border2);}
+
+.category-intro{
+  font-size:14px;color:var(--text2);
+  margin:-8px 0 16px 0;line-height:1.5;
+}
 
 /* ── FOOTER ── */
 footer{
@@ -402,7 +408,6 @@ footer a:hover{color:var(--text);}
 }
 
 /* ── AGE GATE ── */
-/* Body locked until verified — no nudity visible behind overlay */
 body.age-locked{overflow:hidden!important;}
 #age-gate{
   position:fixed;inset:0;
@@ -410,7 +415,6 @@ body.age-locked{overflow:hidden!important;}
   z-index:999999;
   display:flex;align-items:center;justify-content:center;
   padding:20px;
-  /* Fully opaque — content behind is invisible until dismissed */
 }
 #age-gate.hidden{display:none!important;}
 .age-gate-box{
@@ -567,13 +571,10 @@ AGE_GATE = '''
     if (el) { el.textContent = ''; el.classList.remove('show'); }
   }
 
-  // Lock body scroll while gate is showing
   document.body.classList.add('age-locked');
 
-  // If already verified, unlock immediately
   if (getCookie()) { unlock(); return; }
 
-  // Populate dropdowns
   var sd = document.getElementById('age-day');
   var sm = document.getElementById('age-month');
   var sy = document.getElementById('age-year');
@@ -612,7 +613,6 @@ AGE_GATE = '''
       return;
     }
 
-    // Validate it is a real calendar date
     var testDate = new Date(year, mon - 1, day);
     if (
       testDate.getFullYear() !== year ||
@@ -623,7 +623,6 @@ AGE_GATE = '''
       return;
     }
 
-    // Must be at least 18 full years old today
     var today = new Date();
     var age = today.getFullYear() - year;
     if (
@@ -635,17 +634,14 @@ AGE_GATE = '''
 
     if (age < 18) {
       showError('You must be 18 or older to enter this site.');
-      // Redirect underage users away
       setTimeout(function(){ window.location.href = 'https://www.google.com'; }, 1500);
       return;
     }
 
-    // Verified — set cookie and unlock
     setCookie();
     unlock();
   });
 
-  // Allow Enter key on selects to trigger confirm
   [sd, sm, sy].forEach(function(el) {
     el.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') document.getElementById('age-enter').click();
@@ -659,8 +655,10 @@ AGE_GATE = '''
 # Every HTML page must use this. The inline overflow:hidden is a failsafe before stylesheet loads.
 BODY_START = '<body style="overflow:hidden">\n' + AGE_GATE
 
+
 def esc(s):
     return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
+
 
 def header_html(active_link="/"):
     return f'''<header>
@@ -671,10 +669,11 @@ def header_html(active_link="/"):
   </div>
   <div class="header-nav">
     <span class="live-badge"><span class="live-dot"></span>Live Now</span>
-    <a href="{AFFILIATE_LINK}" target="_blank" rel="noopener" class="header-cta">🔴 Watch Live Free</a>
+    <a href="{AFFILIATE_LINK}" target="_blank" rel="noopener" class="header-cta">&#128308; Watch Live Free</a>
   </div>
 </header>
 <div class="banner-wrap">{BANNER_HTML}</div>'''
+
 
 def sidebar_html():
     return f'''<aside class="sidebar">
@@ -684,33 +683,96 @@ def sidebar_html():
   </div>
 </aside>'''
 
+
 def footer_html():
     return '''<footer>
-  <p>© 2026 MyGirlHub.com &nbsp;·&nbsp;
-  <a href="/content-removal.html">DMCA / Content Removal</a> &nbsp;·&nbsp;
-  <a href="/privacy.html">Privacy Policy</a> &nbsp;·&nbsp;
-  <a href="/2257.html">18 U.S.C. 2257</a> &nbsp;·&nbsp;
-  All models are 18+ &nbsp;·&nbsp;
+  <p>
+  <a href="/">Browse performers</a> &nbsp;&middot;&nbsp;
+  <a href="/">Latest videos</a> &nbsp;&middot;&nbsp;
+  &#169; 2026 MyGirlHub.com &nbsp;&middot;&nbsp;
+  <a href="/content-removal.html">DMCA / Content Removal</a> &nbsp;&middot;&nbsp;
+  <a href="/privacy.html">Privacy Policy</a> &nbsp;&middot;&nbsp;
+  <a href="/2257.html">18 U.S.C. 2257</a> &nbsp;&middot;&nbsp;
+  All models are 18+ &nbsp;&middot;&nbsp;
   <a href="https://www.freeones.com/" target="_blank" rel="noopener">FreeOnes</a>
   </p>
 </footer>'''
 
+# Thumbnail hover → Bunny preview.webp; random 2 cards show preview by default
+THUMB_PREVIEW_SCRIPT = '''
+(function(){
+  function run() {
+    var cards = document.querySelectorAll('.video-card');
+    if (!cards.length) return;
+    var items = [];
+    cards.forEach(function(c) {
+      var img = c.querySelector('.thumb-wrap img');
+      var previewUrl = img && (img.getAttribute('data-preview-url') || img.dataset.previewUrl);
+      var thumbUrl = img && (img.getAttribute('data-thumb-url') || img.dataset.thumbUrl);
+      if (!img || !previewUrl || !thumbUrl) return;
+      items.push({card: c, img: img, thumb: thumbUrl, preview: previewUrl});
+    });
+    function setPreview(t) {
+      t.img.src = t.preview;
+      t.img.onerror = function() { t.img.onerror = null; t.img.src = t.thumb; };
+    }
+    function setThumb(t) { t.img.src = t.thumb; t.img.onerror = null; }
+    items.forEach(function(t) {
+      t.card.addEventListener('mouseenter', function() { setPreview(t); });
+      t.card.addEventListener('mouseleave', function() { setThumb(t); });
+    });
+    var n = Math.min(2, items.length);
+    if (n > 0) {
+      var idx = [];
+      for (var i = 0; i < items.length; i++) idx.push(i);
+      idx.sort(function() { return Math.random() - 0.5; });
+      for (var i = 0; i < n; i++) setPreview(items[idx[i]]);
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+'''
+
+# Shuffle all video grids on each page load so returning visitors see variety
+SHUFFLE_GRID_SCRIPT = '''
+(function(){
+  function run() {
+    var grids = document.querySelectorAll('.video-grid');
+    grids.forEach(function(grid) {
+      if (!grid || !grid.children.length) return;
+      var cards = Array.from(grid.querySelectorAll('.video-card'));
+      for (var i = cards.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = cards[i]; cards[i] = cards[j]; cards[j] = t;
+      }
+      cards.forEach(function(c) { grid.appendChild(c); });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+'''
+
+
 def video_card_html(v, priority=False):
-    slug  = v['slug']
-    cdn   = v['cdn']
-    guid  = v['guid']
-    title = esc(v['title'])
-    perf  = esc(v['performer'])
-    views = v.get('views', 0)
-    cat_url = f"/category/{v['performer_slug']}/"
-    views_fmt = f"{views:,}" if isinstance(views, int) and views > 0 else ""
+    slug       = v['slug']
+    cdn        = v['cdn']
+    guid       = v['guid']
+    title      = esc(v['title'])
+    perf       = esc(v['performer'])
+    views      = v.get('views', 0)
+    cat_url    = f"/category/{v['performer_slug']}/"
+    views_fmt  = f"{views:,}" if isinstance(views, int) and views > 0 else ""
     views_html = f'<span class="card-views">{views_fmt} views</span>' if views_fmt else ''
     fetch_attr = ' fetchpriority="high"' if priority else ' loading="lazy"'
-    # preview.webp is auto-generated by Bunny Stream for every video
+    thumb_file = v.get('thumbnail', 'thumbnail.jpg')
+    thumb_url  = f"https://{cdn}/{guid}/{thumb_file}"
     preview_url = f"https://{cdn}/{guid}/preview.webp"
+    alt_text = f"{perf} - {title}"
     return f'''<a class="video-card" href="/videos/{slug}/">
   <div class="thumb-wrap">
-    <img src="{preview_url}" alt="{title}"{fetch_attr} width="320" height="180">
+    <img src="{thumb_url}" alt="{alt_text}" data-thumb-url="{thumb_url}" data-preview-url="{preview_url}"{fetch_attr} width="320" height="180">
     <div class="play-overlay"><div class="play-circle"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
   </div>
   <div class="card-info">
@@ -722,6 +784,7 @@ def video_card_html(v, priority=False):
   </div>
 </a>'''
 
+
 def schema_video(v):
     import json as _json
     return f'''<script type="application/ld+json">
@@ -730,34 +793,58 @@ def schema_video(v):
   "@type": "VideoObject",
   "name": v['title'],
   "description": v.get('description', v['title']),
-  "thumbnailUrl": f"https://{v['cdn']}/{v['guid']}/preview.webp",
+  "thumbnailUrl": f"https://{v['cdn']}/{v['guid']}/thumbnail.jpg",
   "uploadDate": v['date'],
   "embedUrl": f"https://player.mediadelivery.net/embed/{BUNNY_LIBRARY}/{v['guid']}",
   "author": {"@type": "Person", "name": v['performer']}
 }, indent=2)}
 </script>'''
 
+
+def schema_breadcrumb_video(v):
+    """BreadcrumbList schema for video page: Home → Category → Video."""
+    import json as _json
+    base = SITE_URL.rstrip('/')
+    items = [
+        {"@type": "ListItem", "position": 1, "name": "Home", "item": base + "/"},
+        {"@type": "ListItem", "position": 2, "name": v['performer'], "item": f"{base}/category/{v['performer_slug']}/"},
+        {"@type": "ListItem", "position": 3, "name": v['title'], "item": f"{base}/videos/{v['slug']}/"},
+    ]
+    return f'''<script type="application/ld+json">
+{_json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": items}, indent=2)}
+</script>'''
+
+
+def schema_website():
+    """WebSite schema for homepage (sitelinks search box potential)."""
+    import json as _json
+    return f'''<script type="application/ld+json">
+{_json.dumps({
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "MyGirlHub",
+  "url": SITE_URL.rstrip('/') + "/",
+  "description": "Free camgirl videos and cam girl clips. Watch online."
+}, indent=2)}
+</script>'''
+
+
 # ── PAGINATION HELPER ──────────────────────────────────────────────────
 PER_PAGE = 25
 
 def _pagination_html(current_page, total_pages, base_url="/"):
-    """Generate pagination HTML. page 1 = base_url, page N = base_url + page/N/"""
     if total_pages <= 1:
         return ""
 
     def page_url(p):
-        if p == 1:
-            return base_url
-        return f"{base_url}page/{p}/"
+        return base_url if p == 1 else f"{base_url}page/{p}/"
 
     parts = []
-    # Prev
     if current_page > 1:
         parts.append(f'<a class="page-btn" href="{page_url(current_page-1)}">&#8249; Prev</a>')
     else:
         parts.append('<span class="page-btn disabled">&#8249; Prev</span>')
 
-    # Page numbers with ellipsis
     def add_page(p):
         if p == current_page:
             parts.append(f'<span class="page-btn active">{p}</span>')
@@ -770,16 +857,15 @@ def _pagination_html(current_page, total_pages, base_url="/"):
     else:
         add_page(1)
         if current_page > 3:
-            parts.append('<span class="page-ellipsis">…</span>')
+            parts.append('<span class="page-ellipsis">&#8230;</span>')
         start = max(2, current_page - 1)
         end   = min(total_pages - 1, current_page + 1)
         for p in range(start, end + 1):
             add_page(p)
         if current_page < total_pages - 2:
-            parts.append('<span class="page-ellipsis">…</span>')
+            parts.append('<span class="page-ellipsis">&#8230;</span>')
         add_page(total_pages)
 
-    # Next
     if current_page < total_pages:
         parts.append(f'<a class="page-btn" href="{page_url(current_page+1)}">Next &#8250;</a>')
     else:
@@ -790,7 +876,6 @@ def _pagination_html(current_page, total_pages, base_url="/"):
 
 # ── HOMEPAGE ──────────────────────────────────────────────────────────
 def render_homepage(videos, categories, page=1):
-    """Render homepage for a given page number (1-indexed)."""
     total = len(videos)
     total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
     page = max(1, min(page, total_pages))
@@ -798,19 +883,15 @@ def render_homepage(videos, categories, page=1):
     page_videos = videos[start:start + PER_PAGE]
 
     cards = '\n'.join(video_card_html(v, priority=(i < 6)) for i, v in enumerate(page_videos))
-
     cat_pills = '\n'.join(
         f'<a class="cat-pill" href="/category/{c["slug"]}/">{esc(c["name"])} ({c["count"]})</a>'
         for c in sorted(categories, key=lambda x: -x['count'])[:40]
     )
-
     pagination = _pagination_html(page, total_pages, "/")
+    page_suffix = f" - Page {page} of {total_pages}" if page > 1 else ""
+    page_title  = f"Hot Camgirls Free - Watch Free Cam Videos | MyGirlHub{page_suffix}"
+    canonical   = f"{SITE_URL}/" if page == 1 else f"{SITE_URL}/page/{page}/"
 
-    page_suffix = f" – Page {page} of {total_pages}" if page > 1 else ""
-    page_title = f"Hot Camgirls Free – Watch Free Cam Videos | MyGirlHub{page_suffix}"
-    canonical  = f"{SITE_URL}/" if page == 1 else f"{SITE_URL}/page/{page}/"
-
-    # rel prev/next for Google pagination crawling
     prev_link = ""
     next_link = ""
     if page > 1:
@@ -825,15 +906,17 @@ def render_homepage(videos, categories, page=1):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{page_title}</title>
-<meta name="description" content="Watch free cam girl videos from the hottest live performers. New videos added daily. MyGirlHub – your free camgirl video hub.">
+<meta name="description" content="Watch free camgirl videos and cam girl clips from the hottest performers. New videos added daily. Stream and watch online at MyGirlHub - your free camgirl video hub.">
 <link rel="canonical" href="{canonical}">
 {prev_link}
 {next_link}
-<meta property="og:title" content="Hot Camgirls Free – MyGirlHub">
+<meta property="og:title" content="Hot Camgirls Free - MyGirlHub">
 <meta property="og:description" content="Watch free cam girl videos from the hottest performers.">
 <meta property="og:url" content="{canonical}">
 <meta property="og:type" content="website">
+{schema_website()}
 {GA_HEAD}
+{BUNNY_CDN_PRECONNECT}
 {HEAD_CSS}
 </head>
 {BODY_START}
@@ -841,26 +924,19 @@ def render_homepage(videos, categories, page=1):
 <div class="page-wrap">
 <div class="main-content">
 
-  <!-- Performer filter -->
   <div class="performer-filter" id="perf-filter">
     {cat_pills}
   </div>
 
-  <!-- Top bar -->
   <div class="content-topbar">
     <div class="content-topbar-left">
-      <div class="section-label">Latest Videos</div>
-      <span class="count-badge">Showing {start+1}–{min(start+PER_PAGE, total)} of {total}</span>
-    </div>
-    <div class="content-topbar-right">
-      {pagination}
+      <h1 class="section-label">Latest Videos</h1>
+      <span class="count-badge">Showing {start+1}-{min(start+PER_PAGE, total)} of {total}</span>
     </div>
   </div>
 
-  <!-- Grid -->
   <div class="video-grid" id="grid">{cards}</div>
 
-  <!-- Pagination bottom -->
   {pagination}
 
 </div>
@@ -872,7 +948,6 @@ def render_homepage(videos, categories, page=1):
 </button>
 <script>
 (function(){{
-  // Header search → filter cards on current page
   var inp = document.getElementById('site-search');
   if(inp){{
     var cards = Array.from(document.querySelectorAll('.video-card'));
@@ -883,7 +958,6 @@ def render_homepage(videos, categories, page=1):
       }});
     }});
   }}
-  // Back to top
   var btn = document.getElementById('back-to-top');
   if(btn){{
     window.addEventListener('scroll', function(){{
@@ -894,6 +968,8 @@ def render_homepage(videos, categories, page=1):
     }});
   }}
 }})();
+{THUMB_PREVIEW_SCRIPT}
+{SHUFFLE_GRID_SCRIPT}
 </script>
 </body>
 </html>'''
@@ -907,13 +983,12 @@ def render_video_page(v, all_videos=None):
     )
     desc = esc(v.get('description', v['title']))
 
-    # Related videos: same performer, exclude self, max 12
     related_section = ""
     if all_videos:
         related = [x for x in all_videos if x['performer_slug'] == v['performer_slug'] and x['slug'] != v['slug']][:12]
         if related:
             related_cards = '\n'.join(video_card_html(r) for r in related)
-            related_section = f'<div class="section-title">More {esc(v["performer"])} Videos</div><div class="video-grid">{related_cards}</div>'
+            related_section = f'<h2 class="section-title">More {esc(v["performer"])} Videos</h2><div class="video-grid">{related_cards}</div>'
 
     views = v.get('views', 0)
     views_html = f'<span class="video-date">{views:,} views</span>' if isinstance(views, int) and views > 0 else ''
@@ -924,14 +999,15 @@ def render_video_page(v, all_videos=None):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{esc(v['title'])} | MyGirlHub</title>
-<meta name="description" content="Watch {esc(v['performer'])} free cam video – {esc(v['title'])}. Stream now on MyGirlHub.">
+<meta name="description" content="{esc(v['performer'])} free cam video: {esc(v['title'])}. Watch online at MyGirlHub - free camgirl videos and clips.">
 <link rel="canonical" href="{SITE_URL}/videos/{v['slug']}/">
 <meta property="og:title" content="{esc(v['title'])}">
 <meta property="og:description" content="Watch {esc(v['performer'])} free cam video on MyGirlHub.">
-<meta property="og:image" content="https://{v['cdn']}/{v['guid']}/preview.webp">
+<meta property="og:image" content="https://{v['cdn']}/{v['guid']}/thumbnail.jpg">
 <meta property="og:url" content="{SITE_URL}/videos/{v['slug']}/">
 <meta property="og:type" content="video.other">
 {schema_video(v)}
+{schema_breadcrumb_video(v)}
 {GA_HEAD}
 {HEAD_CSS}
 </head>
@@ -966,9 +1042,9 @@ def render_video_page(v, all_videos=None):
   <div class="video-tags">{tags_html}</div>
 
   <a href="{AFFILIATE_LINK}" target="_blank" rel="noopener" class="affiliate-cta">
-    <span class="cta-icon">🔴</span>
+    <span class="cta-icon">&#128308;</span>
     <div class="cta-text">
-      <strong>Watch {esc(v['performer'])} LIVE now — Get 100 FREE Tokens!</strong>
+      <strong>Watch {esc(v['performer'])} LIVE now - Get 100 FREE Tokens!</strong>
       <span>She's online right now on MyFreeCams</span>
     </div>
   </a>
@@ -990,6 +1066,8 @@ def render_video_page(v, all_videos=None):
   window.addEventListener('scroll', function(){{ btn.classList.toggle('visible', window.scrollY > 400); }}, {{passive:true}});
   btn.addEventListener('click', function(){{ window.scrollTo({{top:0, behavior:'smooth'}}); }});
 }})();
+{THUMB_PREVIEW_SCRIPT}
+{SHUFFLE_GRID_SCRIPT}
 </script>
 </body>
 </html>'''
@@ -1005,11 +1083,9 @@ def render_category_page(performer, performer_slug, videos, page=1):
 
     cards = '\n'.join(video_card_html(v, priority=(i < 6)) for i, v in enumerate(page_videos))
     pagination = _pagination_html(page, total_pages, f"/category/{performer_slug}/")
-    canonical  = f"{SITE_URL}/category/{performer_slug}/" if page == 1 else f"{SITE_URL}/category/{performer_slug}/page/{page}/"
-
-    page_suffix = f" – Page {page} of {total_pages}" if page > 1 else ""
-    page_title_str = f"{esc(performer)} Free Cam Videos – Watch {esc(performer)} Live | MyGirlHub{page_suffix}"
-    meta_desc = f"Watch {total} free cam videos from {esc(performer)} on MyGirlHub. Stream {esc(performer)}'s best performances free – updated regularly."
+    page_suffix = f" - Page {page} of {total_pages}" if page > 1 else ""
+    page_title = f"{esc(performer)} Videos | MyGirlHub{page_suffix}"
+    canonical = f"{SITE_URL}/category/{performer_slug}/" if page == 1 else f"{SITE_URL}/category/{performer_slug}/page/{page}/"
 
     prev_link = ""
     next_link = ""
@@ -1024,36 +1100,43 @@ def render_category_page(performer, performer_slug, videos, page=1):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{page_title_str}</title>
-<meta name="description" content="{meta_desc}">
+<title>{page_title}</title>
+<meta name="description" content="Watch {esc(performer)} free cam videos. MyGirlHub - free camgirl video hub.">
 <link rel="canonical" href="{canonical}">
 {prev_link}
 {next_link}
-<meta property="og:title" content="{esc(performer)} Free Cam Videos | MyGirlHub">
+<meta property="og:title" content="{esc(performer)} Videos | MyGirlHub">
+<meta property="og:description" content="Watch {esc(performer)} free cam videos.">
 <meta property="og:url" content="{canonical}">
 <meta property="og:type" content="website">
 {GA_HEAD}
+{BUNNY_CDN_PRECONNECT}
 {HEAD_CSS}
 </head>
 {BODY_START}
 {header_html()}
 <div class="page-wrap">
 <div class="main-content">
+
   <div class="breadcrumb">
     <a href="/">Home</a>
     <span class="breadcrumb-sep">/</span>
     <span>{esc(performer)}</span>
   </div>
 
+  <p class="category-intro">Watch {esc(performer)} free cam videos and highlights. All clips stream free.</p>
+
   <div class="content-topbar">
     <div class="content-topbar-left">
-      <div class="section-label">{esc(performer)}</div>
-      <span class="count-badge">{total} video{"s" if total != 1 else ""}</span>
+      <h1 class="section-label">{esc(performer)} Videos</h1>
+      <span class="count-badge">Showing {start+1}-{min(start+PER_PAGE, total)} of {total}</span>
     </div>
   </div>
 
-  <div class="video-grid">{cards}</div>
+  <div class="video-grid" id="grid">{cards}</div>
+
   {pagination}
+
 </div>
 {sidebar_html()}
 </div>
@@ -1064,43 +1147,112 @@ def render_category_page(performer, performer_slug, videos, page=1):
 <script>
 (function(){{
   var btn = document.getElementById('back-to-top');
-  if(!btn) return;
-  window.addEventListener('scroll', function(){{ btn.classList.toggle('visible', window.scrollY > 400); }}, {{passive:true}});
-  btn.addEventListener('click', function(){{ window.scrollTo({{top:0, behavior:'smooth'}}); }});
+  if(btn){{
+    window.addEventListener('scroll', function(){{
+      btn.classList.toggle('visible', window.scrollY > 400);
+    }}, {{passive:true}});
+    btn.addEventListener('click', function(){{
+      window.scrollTo({{top:0, behavior:'smooth'}});
+    }});
+  }}
 }})();
+{THUMB_PREVIEW_SCRIPT}
+{SHUFFLE_GRID_SCRIPT}
 </script>
 </body>
 </html>'''
 
 
-# ── SITEMAP & ROBOTS ──────────────────────────────────────────────────
-def render_sitemap(videos):
-    urls = [f'''  <url>
-    <loc>{SITE_URL}/</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>''']
-    seen_cats = set()
+# ── SITEMAP & ROBOTS ───────────────────────────────────────────────────
+def render_sitemap(videos, category_slugs=None):
+    """Generate sitemap.xml from videos list. Includes home, category, video and legal URLs. lastmod: today for home/categories, video date for videos. category_slugs: if set, only include these category URLs (e.g. from get_categories to exclude junk)."""
+    from xml.etree import ElementTree as ET
+    from datetime import datetime
+    urlset = ET.Element('urlset', xmlns='http://www.sitemaps.org/schemas/sitemap/0.9')
+    base = SITE_URL.rstrip('/')
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+
+    def add_url(path, lastmod=None):
+        url = ET.SubElement(urlset, 'url')
+        ET.SubElement(url, 'loc').text = f"{base}{path}"
+        if lastmod:
+            ET.SubElement(url, 'lastmod').text = lastmod
+
+    add_url('/', lastmod=today)
+    total = len(videos)
+    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+    for p in range(2, total_pages + 1):
+        add_url(f'/page/{p}/', lastmod=today)
+    seen_slugs = set()
     for v in videos:
-        urls.append(f'''  <url>
-    <loc>{SITE_URL}/videos/{v['slug']}/</loc>
-    <lastmod>{v['date']}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>''')
-        if v['performer_slug'] not in seen_cats:
-            seen_cats.add(v['performer_slug'])
-            urls.append(f'''  <url>
-    <loc>{SITE_URL}/category/{v['performer_slug']}/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>''')
-    return f'''<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-{chr(10).join(urls)}
-</urlset>'''
+        if v.get('performer_slug') and v['performer_slug'] not in seen_slugs:
+            seen_slugs.add(v['performer_slug'])
+            if category_slugs is None or v['performer_slug'] in category_slugs:
+                add_url(f"/category/{v['performer_slug']}/", lastmod=today)
+        add_url(f"/videos/{v['slug']}/", lastmod=v.get('date') or today)
+    for path in ('/privacy.html', '/2257.html', '/content-removal.html', '/terms.html', '/contact.html'):
+        add_url(path, lastmod=today)
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(urlset, encoding='unicode', default_namespace='')
+
 
 def render_robots():
+    """Generate robots.txt allowing crawlers and pointing to sitemap."""
     return f'''User-agent: *
 Allow: /
-Sitemap: {SITE_URL}/sitemap.xml'''
+
+Sitemap: {SITE_URL}/sitemap.xml
+'''
+
+
+# ── LEGAL PAGES ───────────────────────────────────────────────────────
+def _legal_page(title, content):
+    return f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title} | MyGirlHub</title>
+{GA_HEAD}
+{HEAD_CSS}
+</head>
+{BODY_START}
+{header_html()}
+<div class="page-wrap">
+<div class="main-content">
+  <div class="breadcrumb"><a href="/">Home</a><span class="breadcrumb-sep">/</span><span>{title}</span></div>
+  <div style="max-width:800px;margin:0 auto;color:var(--text2);font-size:14px;line-height:1.8;">
+    {content}
+  </div>
+</div>
+</div>
+{footer_html()}
+</body>
+</html>'''
+
+
+def render_privacy():
+    return _legal_page("Privacy Policy", '''<h1 style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text);margin-bottom:24px;">Privacy Policy</h1>
+<p>MyGirlHub.com does not collect personal information. We use Google Analytics for anonymous traffic analysis. No cookies beyond age verification and analytics are set. We do not sell data to third parties.</p>
+<p style="margin-top:16px;">For questions contact: admin@mygirlhub.com</p>''')
+
+
+def render_2257():
+    return _legal_page("18 U.S.C. 2257", '''<h1 style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text);margin-bottom:24px;">18 U.S.C. 2257 Compliance</h1>
+<p>All models, actors, actresses and other persons that appear in any visual depiction of actual sexually explicit conduct appearing on this website were over the age of eighteen (18) years at the time of the creation of such depictions.</p>
+<p style="margin-top:16px;">MyGirlHub.com is not the primary producer of any content displayed on this website. All content is sourced from third-party cam platforms. Records required by 18 U.S.C. 2257 are kept by the original producers.</p>''')
+
+
+def render_dmca():
+    return _legal_page("DMCA / Content Removal", '''<h1 style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text);margin-bottom:24px;">DMCA / Content Removal</h1>
+<p>If you are a copyright owner and believe content on this site infringes your rights, please contact us at: admin@mygirlhub.com</p>
+<p style="margin-top:16px;">Include: your contact information, identification of the copyrighted work, identification of the infringing material, and a statement of good faith belief.</p>''')
+
+
+def render_terms():
+    return _legal_page("Terms of Use", '''<h1 style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text);margin-bottom:24px;">Terms of Use</h1>
+<p>By accessing MyGirlHub.com you confirm you are 18 years of age or older and it is legal to view adult content in your jurisdiction. Unauthorised reproduction of content is prohibited.</p>''')
+
+
+def render_contact():
+    return _legal_page("Contact", '''<h1 style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text);margin-bottom:24px;">Contact</h1>
+<p>Email: admin@mygirlhub.com</p>''')
