@@ -1,0 +1,30 @@
+# MyGirlHub – Portainer stack reference (canonical volumes)
+# Copy this into Portainer stack editor. Use full-directory mount for /app.
+# Do NOT revert to per-file mounts; see PORTAINER.md "Stack volumes (canonical)".
+
+version: "3.8"
+
+services:
+  mygirlhub-publisher:
+    image: python:3.11-alpine
+    container_name: mygirlhub-publisher
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - BUNNY_STREAM_API_KEY=${BUNNY_STREAM_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - SSH_PASSWORD=${SSH_PASSWORD}
+      - BUNNY_LIBRARY_ID=${BUNNY_LIBRARY_ID}
+    command: >
+      sh -c "apk add --no-cache openssh-client sshpass &&
+      pip install --no-cache-dir watchdog requests paramiko anthropic &&
+      python publisher.py"
+    volumes:
+      - /share/Container/mygirlhub:/app
+      - /share/ToPublish:/watch
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
