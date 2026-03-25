@@ -87,18 +87,29 @@ It maps to `/home/u426197676/domains/mygirlhub.com/public_html` on the server.
 ## Sync without hand-copying (Git)
 
 1. On your PC: commit and **push** to GitHub (or your `origin`).
-2. On the NAS (SSH or container console with `git` in the image):
+2. **Inside the Portainer container** (or SSH to the NAS and `cd` to the real repo path), the bind mount is **`/app`** — there is **no** `/share/...` path *inside* the container.
    ```bash
-   cd /share/Container/mygirlhub   # same path Portainer mounts to /app
+   cd /app
    git pull
    ```
-3. Rebuild static HTML (Portainer → publisher/rebuild console):
+   On the NAS host via SSH/File Station, the same files live under e.g. `/share/Container/mygirlhub` — use that path only **on the host**, not in the container console.
+3. Rebuild static HTML:
    ```bash
    cd /app
    PYTHONDONTWRITEBYTECODE=1 python -c "import sitebuilder; sitebuilder.build_site('site', 'site/videos.json')"
    ```
 
 No File Station copy needed if the repo on the NAS tracks `origin` and you only change code via pull.
+
+**`git pull` says local changes would be overwritten:** The copy under `/app` was edited (e.g. manual paste). To make the container match GitHub exactly (usual fix after you’ve pushed from the PC):
+
+```bash
+cd /app
+git fetch origin
+git reset --hard origin/master
+```
+
+Review first with `git diff` if you might need something only on the NAS; otherwise use **`git stash push -m "nas"`** before **`git pull`**, then inspect **`git stash show`**. A separate **GitHub Actions runner** does not need a Portainer console; it does not change the **`git pull`** steps above for the publisher container.
 
 ---
 
