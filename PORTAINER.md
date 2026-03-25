@@ -16,9 +16,21 @@ volumes:
   - /share/ToPublish:/watch
 ```
 
+Optional third mount (only if you prefer `/site` as a separate path in the container):
+
+```yaml
+  - /share/Container/mygirlhub/site:/site
+```
+
+If you use that third line, set **`SITE_OUTPUT=/site`** in the stack environment so `publisher.py` writes to the same folder as your web root. If you omit it, **`publisher.py` defaults to `/app/site`**, which is the same NAS folder as `.../mygirlhub/site` when the repo is mounted at `/app`.
+
 If your NAS uses a different host path for the repo (e.g. `/share/SystemSSD/Container/mygirlhub`), use that path for the first line; keep `:/app` and `:/watch` as shown.
 
 **Why this is in the repo:** `docker-compose.example.yml` and this section are the **source of truth**. When you pull or merge, keep the full-directory mount. Do not revert to per-file mounts (they caused uploads to the wrong path and the container not seeing updated `templates.py`).
+
+**Publisher crash `FileNotFoundError: /site/videos.json`:** Historically `publisher.py` used `/site` while the stack only mounted `/app` and `/watch`, so `/site` was not the real `site` folder and rebuilds could fail after Bunny upload — leaving many `.mp4` files stuck in `ToPublish`. Default is now `/app/site`; use `SITE_OUTPUT=/site` only with the optional third bind.
+
+**Videos stuck in ToPublish after restart:** The file watcher only sees **new** creates/moves. Anything already in `/watch` when the container starts was skipped. On startup, the publisher now runs a **backlog pass** (sorted filenames) over existing `.mp4`/`.mov`/etc. in `/watch`. Set `SKIP_WATCH_BACKLOG=1` in the stack env to disable that pass if you ever need a clean watcher-only start.
 
 ---
 
@@ -69,6 +81,24 @@ If your NAS uses a different host path for the repo (e.g. `/share/SystemSSD/Cont
 
 The `/site` folder is what gets deployed to Hostinger's `public_html`.  
 It maps to `/home/u426197676/domains/mygirlhub.com/public_html` on the server.
+
+---
+
+## Sync without hand-copying (Git)
+
+1. On your PC: commit and **push** to GitHub (or your `origin`).
+2. On the NAS (SSH or container console with `git` in the image):
+   ```bash
+   cd /share/Container/mygirlhub   # same path Portainer mounts to /app
+   git pull
+   ```
+3. Rebuild static HTML (Portainer → publisher/rebuild console):
+   ```bash
+   cd /app
+   PYTHONDONTWRITEBYTECODE=1 python -c "import sitebuilder; sitebuilder.build_site('site', 'site/videos.json')"
+   ```
+
+No File Station copy needed if the repo on the NAS tracks `origin` and you only change code via pull.
 
 ---
 
@@ -195,6 +225,32 @@ cd /app
 pip install paramiko -q
 PYTHONDONTWRITEBYTECODE=1 REBUILD_OUTPUT=/site REBUILD_DATA=/site/videos.json python rebuild_site.py
 ```
+
+**HTML-only rebuild (NAS `site` folder, no SFTP)** — for `dev.*` or when Hostinger is not the target:
+
+```bash
+cd /app
+PYTHONDONTWRITEBYTECODE=1 python -c "import sitebuilder; sitebuilder.build_site('site', 'site/videos.json')"
+```
+
+You should see a line like `[sitebuilder] 188 videos from /app/site/videos.json -> /app/site`.  
+**Wrong:** `build_site('site', 'videos.json')` — that looks for `/app/videos.json`, which usually does not exist; the builder now falls back to `site/videos.json` with a warning, but always prefer `site/videos.json` explicitly.
+
+**Host folder name must match the stack:** Portainer must bind the same NAS folder you keep in Git (e.g. `/share/Container/mygirlhub` → `/app`). Edits anywhere else on the NAS are invisible to the container.
+
+### NAS production mounts — confirmed (Portainer screenshot, Mar 2026)
+
+The live **`mygirlhub-publisher`** stack matches the intended layout:
+
+| Host (QNAP) | Container |
+|---------------|-----------|
+| `/share/Container/mygirlhub` | `/app` |
+| `/share/Container/mygirlhub/site` | `/site` |
+| `/share/ToPublish` | `/watch` |
+
+Service label: **`com.docker.compose.service: mygirlhub-publisher`**. Edits under **`Container/mygirlhub`** on the NAS are what `/app` sees; **`site/`** and **`videos.json`** are the same data whether accessed as **`/app/site`** or **`/site`**.
+
+Optional env: **`SITE_OUTPUT=/site`** so `publisher.py` writes explicitly via the `/site` mount (equivalent to `/app/site` for this host layout).
 
 ### Option B — One-off container (when the publisher is crashing too fast to use the console)
 

@@ -214,7 +214,7 @@ header{
 /* ── VIDEO GRID ── */
 .video-grid{
   display:grid;
-  gap:10px;
+  gap:14px;
   grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
 }
 @media(min-width:1400px){.video-grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));}}
@@ -707,7 +707,7 @@ def footer_html():
   </p>
 </footer>'''
 
-# Thumbnail hover → Bunny preview.webp; random 2 cards show preview by default
+# Thumbnail hover → Bunny preview.webp (hover only — no src swap on load).
 THUMB_PREVIEW_SCRIPT = '''
 (function(){
   function run() {
@@ -730,20 +730,23 @@ THUMB_PREVIEW_SCRIPT = '''
       t.card.addEventListener('mouseenter', function() { setPreview(t); });
       t.card.addEventListener('mouseleave', function() { setThumb(t); });
     });
-    var n = Math.min(2, items.length);
-    if (n > 0) {
-      var idx = [];
-      for (var i = 0; i < items.length; i++) idx.push(i);
-      idx.sort(function() { return Math.random() - 0.5; });
-      for (var i = 0; i < n; i++) setPreview(items[idx[i]]);
-    }
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
-  else run();
+  if (document.readyState === 'complete') run();
+  else window.addEventListener('load', run);
 })();
 '''
 
-# Shuffle all video grids on each page load so returning visitors see variety
+# Previously: hide "broken" thumbnails by removing their cards once load/errors are known.
+# On dev/prod all thumbs are valid, so this over-aggressive script just nukes cards
+# and leaves you with grey/empty tiles. We disable it so every card always stays visible.
+THUMB_HEALTH_SCRIPT = '''
+(function(){
+  // No-op: intentionally disabled thumb health script.
+})();
+'''
+
+# Shuffle video grids after full load — shuffling on DOMContentLoaded moves <img> nodes while
+# lazy-loads are in flight and often leaves black tiles; run after window 'load' instead.
 SHUFFLE_GRID_SCRIPT = '''
 (function(){
   function run() {
@@ -758,8 +761,8 @@ SHUFFLE_GRID_SCRIPT = '''
       cards.forEach(function(c) { grid.appendChild(c); });
     });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
-  else run();
+  if (document.readyState === 'complete') run();
+  else window.addEventListener('load', run);
 })();
 '''
 
@@ -774,14 +777,18 @@ def video_card_html(v, priority=False):
     cat_url    = f"/category/{v['performer_slug']}/"
     views_fmt  = f"{views:,}" if isinstance(views, int) and views > 0 else ""
     views_html = f'<span class="card-views">{views_fmt} views</span>' if views_fmt else ''
-    fetch_attr = ' fetchpriority="high"' if priority else ' loading="lazy"'
+    # No loading="lazy" on grid thumbs: lazy + DOM shuffles caused blank/black tiles in Chrome.
+    # referrerpolicy=no-referrer avoids CDN hotlink blocks that key off Referer (e.g. dev subdomain).
+    fetch_prio = ' fetchpriority="high"' if priority else ''
     thumb_file = v.get('thumbnail', 'thumbnail.jpg')
     thumb_url  = f"https://{cdn}/{guid}/{thumb_file}"
     preview_url = f"https://{cdn}/{guid}/preview.webp"
     alt_text = f"{perf} - {title}"
+    # If thumbnail fails (404/CORB), one-shot fallback to animated preview webp
+    thumb_onerr = f' onerror="this.onerror=null;this.src=\'{preview_url}\';"'
     return f'''<a class="video-card" href="/videos/{slug}/">
   <div class="thumb-wrap">
-    <img src="{thumb_url}" alt="{alt_text}" data-thumb-url="{thumb_url}" data-preview-url="{preview_url}"{fetch_attr} width="320" height="180">
+    <img src="{thumb_url}" alt="{alt_text}" data-thumb-url="{thumb_url}" data-preview-url="{preview_url}"{thumb_onerr} referrerpolicy="no-referrer" decoding="async"{fetch_prio} width="320" height="180">
     <div class="play-overlay"><div class="play-circle"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
   </div>
   <div class="card-info">
@@ -839,7 +846,7 @@ def schema_website():
 
 
 # ── PAGINATION HELPER ──────────────────────────────────────────────────
-PER_PAGE = 25
+PER_PAGE = 16
 
 def _pagination_html(current_page, total_pages, base_url="/"):
     if total_pages <= 1:
@@ -977,8 +984,9 @@ def render_homepage(videos, categories, page=1):
     }});
   }}
 }})();
-{THUMB_PREVIEW_SCRIPT}
 {SHUFFLE_GRID_SCRIPT}
+{THUMB_HEALTH_SCRIPT}
+{THUMB_PREVIEW_SCRIPT}
 </script>
 </body>
 </html>'''
@@ -1075,8 +1083,9 @@ def render_video_page(v, all_videos=None):
   window.addEventListener('scroll', function(){{ btn.classList.toggle('visible', window.scrollY > 400); }}, {{passive:true}});
   btn.addEventListener('click', function(){{ window.scrollTo({{top:0, behavior:'smooth'}}); }});
 }})();
-{THUMB_PREVIEW_SCRIPT}
 {SHUFFLE_GRID_SCRIPT}
+{THUMB_HEALTH_SCRIPT}
+{THUMB_PREVIEW_SCRIPT}
 </script>
 </body>
 </html>'''
@@ -1165,8 +1174,9 @@ def render_category_page(performer, performer_slug, videos, page=1):
     }});
   }}
 }})();
-{THUMB_PREVIEW_SCRIPT}
 {SHUFFLE_GRID_SCRIPT}
+{THUMB_HEALTH_SCRIPT}
+{THUMB_PREVIEW_SCRIPT}
 </script>
 </body>
 </html>'''
@@ -1256,8 +1266,9 @@ def render_tag_page(tag_name, tag_slug, videos, page=1):
     }});
   }}
 }})();
-{THUMB_PREVIEW_SCRIPT}
 {SHUFFLE_GRID_SCRIPT}
+{THUMB_HEALTH_SCRIPT}
+{THUMB_PREVIEW_SCRIPT}
 </script>
 </body>
 </html>'''

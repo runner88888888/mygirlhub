@@ -16,6 +16,8 @@ services:
       - XAI_API_KEY=${XAI_API_KEY}
       - SSH_PASSWORD=${SSH_PASSWORD}
       - BUNNY_LIBRARY_ID=${BUNNY_LIBRARY_ID}
+      # publisher writes to /app/site by default (same as .../mygirlhub/site on host).
+      # If you bind .../site:/site, set SITE_OUTPUT=/site here.
     command: >
       sh -c "apk add --no-cache openssh-client sshpass &&
       pip install --no-cache-dir watchdog requests paramiko anthropic &&

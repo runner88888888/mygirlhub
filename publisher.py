@@ -27,10 +27,14 @@ logging.basicConfig(level=logging.INFO,
     handlers=[logging.StreamHandler(sys.stdout)])
 log = logging.getLogger(__name__)
 
+# Output must live under the repo when only /app + /watch are mounted (see docker-compose.example.yml).
+# Default: /app/site == host .../mygirlhub/site. Override with SITE_OUTPUT=/site if you bind-mount site separately.
+_SITE_OUT = os.environ.get("SITE_OUTPUT", "/app/site").rstrip("/")
+
 CONFIG = {
     "watch_folder":      "/watch",
-    "output_dir":        "/site",
-    "data_file":         "/site/videos.json",
+    "output_dir":        _SITE_OUT,
+    "data_file":         os.path.join(_SITE_OUT, "videos.json"),
     "bunny_library_id":  os.environ.get("BUNNY_LIBRARY_ID", "554827"),
     "bunny_stream_key":  os.environ.get("BUNNY_STREAM_API_KEY", ""),
     "bunny_cdn":         os.environ.get("BUNNY_CDN_HOSTNAME", "vz-7f6a065c-ba7.b-cdn.net"),
@@ -302,12 +306,39 @@ class Handler(FileSystemEventHandler):
         if Path(path).suffix.lower() in CONFIG["video_exts"]:
             process_video(path)
 
+
+def process_watch_folder_backlog():
+    """
+    Watchdog only fires on create/move. Files already sitting in /watch when the
+    container starts are invisible to the watcher — process them once on startup.
+    """
+    watch = CONFIG["watch_folder"]
+    try:
+        names = sorted(os.listdir(watch))
+    except OSError as e:
+        log.warning("Could not list watch folder %s: %s", watch, e)
+        return
+    for name in names:
+        path = os.path.join(watch, name)
+        if not os.path.isfile(path):
+            continue
+        if Path(path).suffix.lower() not in CONFIG["video_exts"]:
+            continue
+        log.info("📥 Backlog (already in watch): %s", name)
+        process_video(path)
+
+
 def main():
     os.makedirs(CONFIG["watch_folder"], exist_ok=True)
     os.makedirs(CONFIG["output_dir"], exist_ok=True)
     log.info("🚀 MyGirlHub Publisher v4")
     log.info(f"📁 Watching : {CONFIG['watch_folder']}")
     log.info(f"🌐 Remote   : {CONFIG['ssh_host']}")
+
+    if os.environ.get("SKIP_WATCH_BACKLOG", "").strip().lower() not in ("1", "true", "yes"):
+        process_watch_folder_backlog()
+    else:
+        log.info("SKIP_WATCH_BACKLOG set — not processing existing files in watch folder")
 
     observer = Observer()
     observer.schedule(Handler(), CONFIG["watch_folder"], recursive=False)

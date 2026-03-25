@@ -193,6 +193,30 @@ def get_tags(videos):
     return list(by_slug.values())
 
 
+def _filter_displayable(videos):
+    """
+    Filter a list of video dicts down to unique, displayable items.
+    - Skips entries missing basic Bunny info (cdn or guid).
+    - De-duplicates by guid/slug/title-performer so the same clip
+      never appears twice on a grid (homepage, category, tag), even
+      if earlier builder runs created noisy near-duplicates.
+    """
+    seen = set()
+    out = []
+    for v in videos:
+        cdn = v.get("cdn")
+        guid = v.get("guid")
+        slug = v.get("slug")
+        if not cdn or not guid:
+            continue
+        key = guid or slug or (v.get("performer_slug"), v.get("title"))
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(v)
+    return out
+
+
 def _build_tag_pages(output_dir, tag, tag_videos):
     slug = tag['slug']
     name = tag['name']
@@ -238,6 +262,7 @@ def _dedup_slug(slug, seen_slugs):
 # ── PAGE BUILDERS ─────────────────────────────────────────────────────
 
 def _build_homepage_pages(output_dir, videos, categories):
+    videos = _filter_displayable(videos)
     total_pages = max(1, (len(videos) + PER_PAGE - 1) // PER_PAGE)
     for page in range(1, total_pages + 1):
         html = render_homepage(videos, categories, page=page)
@@ -251,6 +276,7 @@ def _build_homepage_pages(output_dir, videos, categories):
 def _build_category_pages(output_dir, cat, cat_videos):
     slug = cat['slug'] if isinstance(cat, dict) else cat
     name = cat['name'] if isinstance(cat, dict) else cat
+    cat_videos = _filter_displayable(cat_videos)
     total_pages = max(1, (len(cat_videos) + PER_PAGE - 1) // PER_PAGE)
     for page in range(1, total_pages + 1):
         html = render_category_page(name, slug, cat_videos, page=page)
@@ -263,8 +289,38 @@ def _build_category_pages(output_dir, cat, cat_videos):
 
 # ── MAIN BUILD ────────────────────────────────────────────────────────
 
+def _resolve_build_data_path(output_dir, data_path):
+    """
+    videos.json must be found explicitly. A common mistake is:
+      build_site('site', 'videos.json')  # looks in cwd (/app), not in site/
+
+    Accepts:
+      - Absolute or relative path that exists.
+      - Else {output_dir}/videos.json if that file exists (with a warning).
+    """
+    out = os.path.abspath(output_dir)
+    cand = os.path.abspath(data_path)
+    if os.path.isfile(cand):
+        return cand
+    alt = os.path.join(out, "videos.json")
+    if os.path.isfile(alt):
+        log.warning(
+            "videos.json not at %s (cwd=%s); using %s",
+            cand,
+            os.getcwd(),
+            alt,
+        )
+        return alt
+    raise FileNotFoundError(
+        f"videos.json not found at {cand} or {alt}. "
+        f"From /app run: sitebuilder.build_site('site', 'site/videos.json') "
+        f"or use rebuild_site.py with REBUILD_DATA=/site/videos.json."
+    )
+
+
 def build_site(output_dir, data_path):
     """Rebuild entire site from videos data."""
+    data_path = _resolve_build_data_path(output_dir, data_path)
     raw_videos = load_videos(data_path)
 
     # Enforce single-word performer rule on every record
@@ -277,6 +333,8 @@ def build_site(output_dir, data_path):
 
     categories = get_categories(videos)
     log.info(f"Building site: {len(videos)} videos, {len(categories)} performers")
+    # Visible without logging setup (default one-liners in Portainer show no log lines otherwise)
+    print(f"[sitebuilder] {len(videos)} videos from {data_path} -> {os.path.abspath(output_dir)}", flush=True)
 
     _build_homepage_pages(output_dir, videos, categories)
 
@@ -292,7 +350,7 @@ def build_site(output_dir, data_path):
     tags = get_tags(videos)
     for tag in tags:
         tag_videos = [v for v in videos if tag['slug'] in [slugify(str(t).strip()) for t in (v.get('tags') or []) if t]]
-        _build_tag_pages(output_dir, tag, tag_videos)
+        _build_tag_pages(output_dir, tag, _filter_displayable(tag_videos))
 
     write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}, tag_slugs={t['slug'] for t in tags}))
     write(f"{output_dir}/robots.txt", render_robots())
@@ -336,7 +394,7 @@ def add_video_and_rebuild(output_dir, data_path, new_video):
     tags = get_tags(videos)
     for tag in tags:
         tag_videos = [v for v in videos if tag['slug'] in [slugify(str(t).strip()) for t in (v.get('tags') or []) if t]]
-        _build_tag_pages(output_dir, tag, tag_videos)
+        _build_tag_pages(output_dir, tag, _filter_displayable(tag_videos))
 
     write(f"{output_dir}/sitemap.xml", render_sitemap(videos, category_slugs={c['slug'] for c in categories}, tag_slugs={t['slug'] for t in tags}))
 
