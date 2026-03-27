@@ -26,6 +26,25 @@ from templates import (
 AGE_GATE_MARKER = 'id="age-gate"'
 log = logging.getLogger(__name__)
 
+# When set to a list, every write() appends the absolute path (publisher incremental deploy).
+_write_recording = None
+
+
+def begin_write_recording():
+    """Start tracking paths written by write() until end_write_recording()."""
+    global _write_recording
+    buf = []
+    _write_recording = buf
+    return buf
+
+
+def end_write_recording():
+    """Stop tracking; return sorted unique absolute paths written since begin_write_recording()."""
+    global _write_recording
+    out = sorted(set(_write_recording)) if _write_recording else []
+    _write_recording = None
+    return out
+
 # Category slugs we never expose (no category page, no pill). Videos are recategorised from description when possible.
 JUNK_CATEGORY_SLUGS = {
     'screenrecording', 'mfcgoddessasian', 'linaresjesicabig',
@@ -242,6 +261,8 @@ def write(path, content):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
+    if _write_recording is not None:
+        _write_recording.append(os.path.abspath(path))
     log.info(f"Written: {path}")
 
 

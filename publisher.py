@@ -20,7 +20,14 @@ from pathlib import Path
 from datetime import datetime
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from sitebuilder import slugify, clean_performer, performer_slug, add_video_and_rebuild
+from sitebuilder import (
+    slugify,
+    clean_performer,
+    performer_slug,
+    add_video_and_rebuild,
+    begin_write_recording,
+    end_write_recording,
+)
 
 logging.basicConfig(level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -205,29 +212,6 @@ def sftp_upload_files(file_paths):
     ssh.close()
 
 
-def collect_recent_build_files(local_root, since_ts):
-    """
-    Return web files under local_root whose mtime is >= since_ts.
-    This avoids stale deploys when add_video_and_rebuild updates many pages
-    (pagination, tags, categories) but a fixed upload list misses them.
-    """
-    exts = {".html", ".xml", ".txt", ".css", ".js", ".ico", ".png", ".jpg", ".svg", ".webp", ".json"}
-    out = []
-    for dirpath, _, filenames in os.walk(local_root):
-        for name in filenames:
-            if name.startswith("."):
-                continue
-            ext = os.path.splitext(name)[1].lower()
-            if ext not in exts:
-                continue
-            p = os.path.join(dirpath, name)
-            try:
-                if os.path.getmtime(p) + 0.001 >= since_ts:
-                    out.append(p)
-            except OSError:
-                continue
-    return sorted(set(out))
-
 # ── PIPELINE ─────────────────────────────────────────────
 processed = set()
 
@@ -319,20 +303,25 @@ def process_video(filepath):
     if not os.path.exists(CONFIG["data_file"]):
         with open(CONFIG["data_file"], 'w') as f: f.write('[]')
 
-    build_started_at = time.time()
-    add_video_and_rebuild(CONFIG["output_dir"], CONFIG["data_file"], new_video)
+    begin_write_recording()
+    try:
+        rebuilt = add_video_and_rebuild(CONFIG["output_dir"], CONFIG["data_file"], new_video)
+    finally:
+        changed = end_write_recording()
     log_thumb_referrer_regression_check()
 
-    # Upload every file touched by this rebuild to avoid stale pages.
-    changed = collect_recent_build_files(CONFIG["output_dir"], build_started_at)
-    if CONFIG["data_file"] not in changed and os.path.exists(CONFIG["data_file"]):
-        changed.append(CONFIG["data_file"])
-
-    try:
-        sftp_upload_files(changed)
-        log.info(f"Live: https://mygirlhub.com/videos/{slug}/")
-    except Exception as e:
-        log.error(f"Upload failed: {e}")
+    if not rebuilt:
+        log.info("Rebuild skipped — no SFTP upload")
+    else:
+        data_path = os.path.abspath(CONFIG["data_file"])
+        if data_path not in changed and os.path.exists(data_path):
+            changed.append(data_path)
+        log.info("SFTP: uploading %d files from rebuild trace", len(changed))
+        try:
+            sftp_upload_files(changed)
+            log.info(f"Live: https://mygirlhub.com/videos/{slug}/")
+        except Exception as e:
+            log.error(f"Upload failed: {e}")
 
     try:
         os.remove(filepath)

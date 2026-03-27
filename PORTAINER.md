@@ -43,6 +43,8 @@ python -c "from pathlib import Path; s=Path('/site/page/2/index.html').read_text
 ```
 Both values must be `0`.
 
+**Publisher SFTP after one new video:** Upload uses an exact list of every path `sitebuilder.write()` touched during `add_video_and_rebuild` (not filesystem mtime). On QNAP/NFS/docker volumes, mtime can be 1-second resolution, which previously caused many rewritten `index.html` / paginated pages to be skipped and the live site to show stale markup while `/site` was correct.
+
 ---
 
 ## Known issues (fix next session)
