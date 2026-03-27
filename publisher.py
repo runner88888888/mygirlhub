@@ -204,6 +204,30 @@ def sftp_upload_files(file_paths):
     sftp.close()
     ssh.close()
 
+
+def collect_recent_build_files(local_root, since_ts):
+    """
+    Return web files under local_root whose mtime is >= since_ts.
+    This avoids stale deploys when add_video_and_rebuild updates many pages
+    (pagination, tags, categories) but a fixed upload list misses them.
+    """
+    exts = {".html", ".xml", ".txt", ".css", ".js", ".ico", ".png", ".jpg", ".svg", ".webp", ".json"}
+    out = []
+    for dirpath, _, filenames in os.walk(local_root):
+        for name in filenames:
+            if name.startswith("."):
+                continue
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in exts:
+                continue
+            p = os.path.join(dirpath, name)
+            try:
+                if os.path.getmtime(p) + 0.001 >= since_ts:
+                    out.append(p)
+            except OSError:
+                continue
+    return sorted(set(out))
+
 # ── PIPELINE ─────────────────────────────────────────────
 processed = set()
 
@@ -295,18 +319,14 @@ def process_video(filepath):
     if not os.path.exists(CONFIG["data_file"]):
         with open(CONFIG["data_file"], 'w') as f: f.write('[]')
 
+    build_started_at = time.time()
     add_video_and_rebuild(CONFIG["output_dir"], CONFIG["data_file"], new_video)
     log_thumb_referrer_regression_check()
 
-    # Upload changed files
-    changed = [
-        f"{CONFIG['output_dir']}/index.html",
-        f"{CONFIG['output_dir']}/videos/{slug}/index.html",
-        f"{CONFIG['output_dir']}/category/{perf_slug}/index.html",
-        f"{CONFIG['output_dir']}/sitemap.xml",
-        CONFIG["data_file"],
-    ]
-    changed = [p for p in changed if os.path.exists(p)]
+    # Upload every file touched by this rebuild to avoid stale pages.
+    changed = collect_recent_build_files(CONFIG["output_dir"], build_started_at)
+    if CONFIG["data_file"] not in changed and os.path.exists(CONFIG["data_file"]):
+        changed.append(CONFIG["data_file"])
 
     try:
         sftp_upload_files(changed)
