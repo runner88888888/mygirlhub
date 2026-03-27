@@ -32,6 +32,17 @@ If your NAS uses a different host path for the repo (e.g. `/share/SystemSSD/Cont
 
 **Videos stuck in ToPublish after restart:** The file watcher only sees **new** creates/moves. Anything already in `/watch` when the container starts was skipped. On startup, the publisher now runs a **backlog pass** (sorted filenames) over existing `.mp4`/`.mov`/etc. in `/watch`. Set `SKIP_WATCH_BACKLOG=1` in the stack env to disable that pass if you ever need a clean watcher-only start.
 
+**Site-wide black thumbnails after publisher/rebuild:** Root cause was `referrerpolicy="no-referrer"` on card images. Bunny image endpoints return 403 when Referer is missing. Persistent fix is now in code:
+- `templates.py`: card image markup avoids `referrerpolicy="no-referrer"`.
+- `sitebuilder.py` `write()`: strips `referrerpolicy="no-referrer"` from generated HTML as a safety guard, so publisher runs cannot reintroduce this regression.
+
+Quick verify in publisher console:
+```bash
+python -c "from pathlib import Path; s=Path('/site/index.html').read_text(encoding='utf-8',errors='ignore'); print(s.count('referrerpolicy=\"no-referrer\"'))"
+python -c "from pathlib import Path; s=Path('/site/page/2/index.html').read_text(encoding='utf-8',errors='ignore'); print(s.count('referrerpolicy=\"no-referrer\"'))"
+```
+Both values must be `0`.
+
 ---
 
 ## Known issues (fix next session)

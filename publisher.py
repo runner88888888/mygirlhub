@@ -207,6 +207,38 @@ def sftp_upload_files(file_paths):
 # ── PIPELINE ─────────────────────────────────────────────
 processed = set()
 
+def log_thumb_referrer_regression_check(paths=None):
+    """
+    Detect regression where generated HTML contains referrerpolicy="no-referrer",
+    which causes Bunny thumbnail/preview 403s (missing Referer).
+    """
+    if paths is None:
+        paths = [
+            f"{CONFIG['output_dir']}/index.html",
+            f"{CONFIG['output_dir']}/page/2/index.html",
+        ]
+    total_hits = 0
+    scanned = 0
+    for p in paths:
+        if not os.path.exists(p):
+            continue
+        scanned += 1
+        try:
+            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                html = f.read()
+            hits = html.count('referrerpolicy="no-referrer"')
+            total_hits += hits
+            if hits:
+                log.warning("⚠️ Thumb regression check: %s contains %d no-referrer attrs", p, hits)
+        except Exception as e:
+            log.warning("Thumb regression check failed for %s: %s", p, e)
+    if scanned == 0:
+        log.info("Thumb regression check: no HTML files found yet")
+    elif total_hits == 0:
+        log.info("✅ Thumb regression check: no no-referrer attrs found")
+    else:
+        log.warning("⚠️ Thumb regression check failed: total no-referrer attrs=%d", total_hits)
+
 def process_video(filepath):
     if filepath in processed: return
     processed.add(filepath)
@@ -264,6 +296,7 @@ def process_video(filepath):
         with open(CONFIG["data_file"], 'w') as f: f.write('[]')
 
     add_video_and_rebuild(CONFIG["output_dir"], CONFIG["data_file"], new_video)
+    log_thumb_referrer_regression_check()
 
     # Upload changed files
     changed = [
@@ -334,6 +367,7 @@ def main():
     log.info("🚀 MyGirlHub Publisher v4")
     log.info(f"📁 Watching : {CONFIG['watch_folder']}")
     log.info(f"🌐 Remote   : {CONFIG['ssh_host']}")
+    log_thumb_referrer_regression_check()
 
     if os.environ.get("SKIP_WATCH_BACKLOG", "").strip().lower() not in ("1", "true", "yes"):
         process_watch_folder_backlog()

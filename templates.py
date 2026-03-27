@@ -7,12 +7,17 @@ EVERY HTML PAGE (homepage, video, category) MUST include:
 - GA_HEAD, HEAD_CSS, header_html(), footer_html() / sidebar as appropriate.
 When adding a new page type, use BODY_START so the age gate is never left out.
 
+Optional env at static build time (sitebuilder): MG_VIDEO_GRID_SHUFFLE=1 randomizes grids after load;
+MG_THUMB_HOVER_PREVIEW=1 enables preview.webp on card hover. Defaults off (static thumbs only).
+
 FIXES APPLIED 2026-03-12:
 - Removed thumb-static class and CSS (was causing black hover window)
 - Removed background:rgba(0,0,0,0.25) from .play-overlay (was causing black hover window)
 - Added document.body.style.overflow='' to unlock() (fixes desktop scroll lock after age gate)
 - Added render_privacy, render_2257, render_dmca, render_terms, render_contact legal page functions
 """
+
+import os
 
 AFFILIATE_LINK = "https://t.amyfc.link/260715/779/0?bo=2779,2778,2777,2776,2775&po=6533&aff_sub5=SF_006OG000004lmDN"
 BUNNY_LIBRARY  = "554827"
@@ -736,15 +741,6 @@ THUMB_PREVIEW_SCRIPT = '''
 })();
 '''
 
-# Previously: hide "broken" thumbnails by removing their cards once load/errors are known.
-# On dev/prod all thumbs are valid, so this over-aggressive script just nukes cards
-# and leaves you with grey/empty tiles. We disable it so every card always stays visible.
-THUMB_HEALTH_SCRIPT = '''
-(function(){
-  // No-op: intentionally disabled thumb health script.
-})();
-'''
-
 # Shuffle video grids after full load — shuffling on DOMContentLoaded moves <img> nodes while
 # lazy-loads are in flight and often leaves black tiles; run after window 'load' instead.
 SHUFFLE_GRID_SCRIPT = '''
@@ -767,6 +763,27 @@ SHUFFLE_GRID_SCRIPT = '''
 '''
 
 
+def _env_enabled(name: str, default: bool = False) -> bool:
+    v = os.environ.get(name)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "on")
+
+
+_GRID_SHUFFLE_ENABLED = _env_enabled("MG_VIDEO_GRID_SHUFFLE", default=False)
+_THUMB_HOVER_ENABLED = _env_enabled("MG_THUMB_HOVER_PREVIEW", default=False)
+
+
+def grid_extra_scripts() -> str:
+    """Optional grid scripts; defaults empty so pages are static <img> grids only."""
+    parts = []
+    if _GRID_SHUFFLE_ENABLED:
+        parts.append(SHUFFLE_GRID_SCRIPT.strip())
+    if _THUMB_HOVER_ENABLED:
+        parts.append(THUMB_PREVIEW_SCRIPT.strip())
+    return "\n" + "\n".join(parts) if parts else ""
+
+
 def video_card_html(v, priority=False):
     slug       = v['slug']
     cdn        = v['cdn']
@@ -778,17 +795,22 @@ def video_card_html(v, priority=False):
     views_fmt  = f"{views:,}" if isinstance(views, int) and views > 0 else ""
     views_html = f'<span class="card-views">{views_fmt} views</span>' if views_fmt else ''
     # No loading="lazy" on grid thumbs: lazy + DOM shuffles caused blank/black tiles in Chrome.
-    # referrerpolicy=no-referrer avoids CDN hotlink blocks that key off Referer (e.g. dev subdomain).
+    # NOTE: Bunny CDN requires a Referer header for thumbnail access, so we intentionally
+    # do NOT set referrerpolicy="no-referrer" on grid thumbs.
     fetch_prio = ' fetchpriority="high"' if priority else ''
     thumb_file = v.get('thumbnail', 'thumbnail.jpg')
     thumb_url  = f"https://{cdn}/{guid}/{thumb_file}"
     preview_url = f"https://{cdn}/{guid}/preview.webp"
     alt_text = f"{perf} - {title}"
-    # If thumbnail fails (404/CORB), one-shot fallback to animated preview webp
-    thumb_onerr = f' onerror="this.onerror=null;this.src=\'{preview_url}\';"'
+    # If thumbnail fails, try preview.webp once; if that also fails, use local fallback image.
+    thumb_onerr = (
+        f' onerror="if(!this.dataset.previewTried)'
+        f'{{this.dataset.previewTried=\'1\';this.src=\'{preview_url}\';return;}}'
+        f'this.onerror=null;this.src=\'/thumb-fallback.svg\';"'
+    )
     return f'''<a class="video-card" href="/videos/{slug}/">
   <div class="thumb-wrap">
-    <img src="{thumb_url}" alt="{alt_text}" data-thumb-url="{thumb_url}" data-preview-url="{preview_url}"{thumb_onerr} referrerpolicy="no-referrer" decoding="async"{fetch_prio} width="320" height="180">
+    <img src="{thumb_url}" alt="{alt_text}" data-thumb-url="{thumb_url}" data-preview-url="{preview_url}"{thumb_onerr} decoding="async"{fetch_prio} width="320" height="180">
     <div class="play-overlay"><div class="play-circle"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
   </div>
   <div class="card-info">
@@ -984,9 +1006,7 @@ def render_homepage(videos, categories, page=1):
     }});
   }}
 }})();
-{SHUFFLE_GRID_SCRIPT}
-{THUMB_HEALTH_SCRIPT}
-{THUMB_PREVIEW_SCRIPT}
+{grid_extra_scripts()}
 </script>
 </body>
 </html>'''
@@ -1083,9 +1103,7 @@ def render_video_page(v, all_videos=None):
   window.addEventListener('scroll', function(){{ btn.classList.toggle('visible', window.scrollY > 400); }}, {{passive:true}});
   btn.addEventListener('click', function(){{ window.scrollTo({{top:0, behavior:'smooth'}}); }});
 }})();
-{SHUFFLE_GRID_SCRIPT}
-{THUMB_HEALTH_SCRIPT}
-{THUMB_PREVIEW_SCRIPT}
+{grid_extra_scripts()}
 </script>
 </body>
 </html>'''
@@ -1174,9 +1192,7 @@ def render_category_page(performer, performer_slug, videos, page=1):
     }});
   }}
 }})();
-{SHUFFLE_GRID_SCRIPT}
-{THUMB_HEALTH_SCRIPT}
-{THUMB_PREVIEW_SCRIPT}
+{grid_extra_scripts()}
 </script>
 </body>
 </html>'''
@@ -1266,9 +1282,7 @@ def render_tag_page(tag_name, tag_slug, videos, page=1):
     }});
   }}
 }})();
-{SHUFFLE_GRID_SCRIPT}
-{THUMB_HEALTH_SCRIPT}
-{THUMB_PREVIEW_SCRIPT}
+{grid_extra_scripts()}
 </script>
 </body>
 </html>'''

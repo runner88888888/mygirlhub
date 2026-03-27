@@ -424,3 +424,23 @@ def _write_legal_pages(output_dir):
     write(f"{output_dir}/content-removal.html", render_dmca())
     write(f"{output_dir}/terms.html", render_terms())
     write(f"{output_dir}/contact.html", render_contact())
+    write(
+        f"{output_dir}/thumb-fallback.svg",
+        """<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" role="img" aria-label="Thumbnail unavailable">
+<defs>
+  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#14171f"/>
+    <stop offset="100%" stop-color="#0b0d12"/>
+  </linearGradient>
+</defs>
+<rect width="320" height="180" fill="url(#g)"/>
+<g fill="none" stroke="#a0a7b8" stroke-width="3">
+  <rect x="92" y="45" width="136" height="90" rx="8"/>
+  <path d="M140 72v36l28-18z" fill="#a0a7b8" stroke="none"/>
+</g>
+<text x="160" y="156" text-anchor="middle" fill="#a0a7b8" font-size="13" font-family="Arial, sans-serif">
+  Thumbnail unavailable
+</text>
+</svg>
+""",
+    )
