@@ -233,6 +233,12 @@ def _build_tag_pages(output_dir, tag, tag_videos):
 # ── FILE WRITING ──────────────────────────────────────────────────────
 
 def write(path, content):
+    # Safety guard: Bunny rejects thumbnail/preview requests without Referer.
+    # If stale templates reintroduce no-referrer, strip it at write-time so
+    # publisher/rebuild runs cannot break site-wide thumbs again.
+    if isinstance(content, str) and 'referrerpolicy="no-referrer"' in content:
+        content = content.replace(' referrerpolicy="no-referrer"', "")
+        content = content.replace('referrerpolicy="no-referrer"', "")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
