@@ -3,15 +3,16 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import NewsletterCapture from '../components/NewsletterCapture.astro';
+import CuratedWellnessEdit from '../components/CuratedWellnessEdit.astro';
+import PractitionerIntakeBanner from '../components/PractitionerIntakeBanner.astro';
 import { getCollection } from 'astro:content';
+import { images } from '../data/images';
+import { telehealthPartners } from '../data/telehealth';
 
 const allPosts = await getCollection('blog', ({ data }) => !data.draft);
 const featuredPosts = [...allPosts]
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
   .slice(0, 3);
-
-const practitioners = await getCollection('directory');
-const previewPractitioners = practitioners.slice(0, 3);
 
 function formatDate(date: Date) {
   return date.toLocaleDateString('en-AU', {
@@ -24,19 +25,28 @@ function formatDate(date: Date) {
 
 <BaseLayout
   title="MyGirlHub — Wellness, Mental Health & Self-Care for Women"
-  description="A credible wellness publication for women: mental health insights, cycle syncing guides, burnout recovery, and a curated practitioner directory."
+  description="A credible wellness publication for women: mental health insights, cycle syncing guides, burnout recovery, curated shop, and practitioner directory."
 >
   <SiteHeader slot="header" />
 
-  <section class="border-b border-stone bg-gradient-to-b from-stone/50 to-cream">
-    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-      <p class="text-sm font-medium uppercase tracking-widest text-sage-light">Welcome to MyGirlHub</p>
-      <h1 class="mt-4 max-w-3xl font-serif text-4xl font-semibold leading-tight text-ink sm:text-5xl lg:text-6xl">
+  <section class="relative border-b border-stone overflow-hidden">
+    <img
+      src={images.hero}
+      alt="Woman practicing mindfulness in a peaceful setting"
+      class="absolute inset-0 h-full w-full object-cover"
+      width="1600"
+      height="900"
+      fetchpriority="high"
+    />
+    <div class="absolute inset-0 bg-gradient-to-r from-ink/70 via-ink/50 to-ink/30" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
+      <p class="text-sm font-medium uppercase tracking-widest text-cream/80">Welcome to MyGirlHub</p>
+      <h1 class="mt-4 max-w-3xl font-serif text-4xl font-semibold leading-tight text-cream sm:text-5xl lg:text-6xl">
         Wellness that feels calm, credible, and entirely yours.
       </h1>
-      <p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75">
-        MyGirlHub is a premium publication for women navigating mental health, hormonal wellbeing,
-        and sustainable self-care — without hustle culture, shame, or sensationalism.
+      <p class="mt-6 max-w-2xl text-lg leading-relaxed text-cream/90">
+        Evidence-informed articles, vetted practitioners, and a curated shop for burnout recovery,
+        cycle syncing, and nervous-system care — built for Australian women.
       </p>
       <div class="mt-8 flex flex-wrap gap-4">
         <a
@@ -46,10 +56,10 @@ function formatDate(date: Date) {
           Explore articles
         </a>
         <a
-          href="/directory/"
-          class="inline-flex items-center rounded-xl border border-sage/30 bg-cream px-6 py-3 text-sm font-semibold text-sage transition hover:bg-stone/50"
+          href="/shop/"
+          class="inline-flex items-center rounded-xl border border-cream/40 bg-cream/10 px-6 py-3 text-sm font-semibold text-cream backdrop-blur-sm transition hover:bg-cream/20"
         >
-          Find a practitioner
+          Shop the Wellness Edit
         </a>
       </div>
     </div>
@@ -61,7 +71,7 @@ function formatDate(date: Date) {
         <h2 id="featured-heading" class="font-serif text-3xl font-semibold text-ink">
           Featured articles
         </h2>
-        <p class="mt-2 text-ink/70">Evidence-informed reads on burnout, cycle syncing, and daily self-care.</p>
+        <p class="mt-2 text-ink/70">Deep reads on burnout, cycle syncing, and daily self-care.</p>
       </div>
       <a href="/blog/" class="text-sm font-semibold text-sage hover:underline">View all →</a>
     </div>
@@ -69,28 +79,26 @@ function formatDate(date: Date) {
     <ul class="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
       {
         featuredPosts.map((post) => (
-          <li>
+          <li class="relative">
             <article class="group flex h-full flex-col overflow-hidden rounded-2xl border border-stone bg-cream shadow-sm transition hover:border-sage/30 hover:shadow-md">
-              <div class="aspect-[16/10] bg-gradient-to-br from-sage/20 to-stone flex items-center justify-center">
+              <div class="aspect-[16/10] overflow-hidden bg-stone">
                 {post.data.image ? (
                   <img
                     src={post.data.image}
                     alt=""
-                    class="h-full w-full object-cover"
+                    class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                     loading="lazy"
+                    width="800"
+                    height="500"
                   />
-                ) : (
-                  <span class="font-serif text-4xl text-sage/40" aria-hidden="true">
-                    ✦
-                  </span>
-                )}
+                ) : null}
               </div>
               <div class="flex flex-1 flex-col p-6">
                 <span class="text-xs font-semibold uppercase tracking-wide text-sage-light">
                   {post.data.category}
                 </span>
                 <h3 class="mt-2 font-serif text-xl font-semibold text-ink group-hover:text-sage">
-                  <a href={`/blog/${post.id}/`} class="after:absolute after:inset-0 relative">
+                  <a href={`/blog/${post.id}/`} class="before:absolute before:inset-0">
                     {post.data.title}
                   </a>
                 </h3>
@@ -108,36 +116,45 @@ function formatDate(date: Date) {
     </ul>
   </section>
 
+  <CuratedWellnessEdit compact showViewAll />
+
   <section class="bg-stone/30 py-16" aria-labelledby="directory-preview-heading">
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="directory-preview-heading" class="font-serif text-3xl font-semibold text-ink">
-            Wellness directory
+            Telehealth &amp; care networks
           </h2>
           <p class="mt-2 max-w-xl text-ink/70">
-            Trusted therapists, coaches, and movement guides — many based in Australia.
+            Licensed online therapy — or apply to list your verified practice when our directory opens.
           </p>
         </div>
-        <a href="/directory/" class="text-sm font-semibold text-sage hover:underline">Browse directory →</a>
+        <a href="/directory/" class="text-sm font-semibold text-sage hover:underline">Full directory →</a>
       </div>
 
-      <ul class="mt-10 grid gap-6 md:grid-cols-3">
+      <ul class="mt-10 grid gap-6 md:grid-cols-2">
         {
-          previewPractitioners.map((entry) => (
-            <li class="rounded-2xl border border-stone bg-cream p-6">
-              <p class="text-xs font-semibold uppercase tracking-wide text-sage-light">
-                {entry.data.specialty}
-              </p>
-              <h3 class="mt-2 font-serif text-lg font-semibold text-ink">
-                {entry.data.practitionerName}
-              </h3>
-              <p class="mt-1 text-sm text-ink/60">{entry.data.location}</p>
-              <p class="mt-3 text-sm leading-relaxed text-ink/75 line-clamp-3">{entry.data.bio}</p>
+          telehealthPartners.map((partner) => (
+            <li class="rounded-2xl border border-stone bg-cream p-6 shadow-sm">
+              <p class="text-xs font-semibold uppercase tracking-wide text-sage-light">{partner.tagline}</p>
+              <h3 class="mt-2 font-serif text-xl font-semibold text-ink">{partner.name}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-ink/75 line-clamp-3">{partner.description}</p>
+              <a
+                href={partner.ctaHref}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                class="mt-4 inline-flex text-sm font-semibold text-sage hover:underline"
+              >
+                {partner.ctaLabel} ↗
+              </a>
             </li>
           ))
         }
       </ul>
+
+      <div class="mt-10">
+        <PractitionerIntakeBanner compact />
+      </div>
     </div>
   </section>
 

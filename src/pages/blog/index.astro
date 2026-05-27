@@ -55,20 +55,34 @@ function formatDate(date: Date) {
     <ul class="mt-12 grid gap-8 sm:grid-cols-2" id="post-list">
       {
         posts.map((post) => (
-          <li data-category={post.data.category}>
-            <article class="flex h-full flex-col rounded-2xl border border-stone bg-cream p-6 transition hover:border-sage/30">
-              <span class="text-xs font-semibold uppercase tracking-wide text-sage-light">
-                {post.data.category}
-              </span>
-              <h2 class="mt-2 font-serif text-2xl font-semibold text-ink">
-                <a href={`/blog/${post.id}/`} class="hover:text-sage">
-                  {post.data.title}
-                </a>
-              </h2>
-              <p class="mt-3 flex-1 text-sm leading-relaxed text-ink/75">{post.data.description}</p>
-              <time datetime={post.data.pubDate.toISOString()} class="mt-4 block text-xs text-ink/50">
-                {formatDate(post.data.pubDate)}
-              </time>
+          <li data-category={post.data.category} class="relative">
+            <article class="flex h-full flex-col overflow-hidden rounded-2xl border border-stone bg-cream transition hover:border-sage/30 hover:shadow-md">
+              {post.data.image && (
+                <div class="aspect-[16/10] overflow-hidden bg-stone">
+                  <img
+                    src={post.data.image}
+                    alt=""
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                    width="800"
+                    height="500"
+                  />
+                </div>
+              )}
+              <div class="flex flex-1 flex-col p-6">
+                <span class="text-xs font-semibold uppercase tracking-wide text-sage-light">
+                  {post.data.category}
+                </span>
+                <h2 class="mt-2 font-serif text-2xl font-semibold text-ink">
+                  <a href={`/blog/${post.id}/`} class="hover:text-sage before:absolute before:inset-0">
+                    {post.data.title}
+                  </a>
+                </h2>
+                <p class="mt-3 flex-1 text-sm leading-relaxed text-ink/75">{post.data.description}</p>
+                <time datetime={post.data.pubDate.toISOString()} class="mt-4 block text-xs text-ink/50">
+                  {formatDate(post.data.pubDate)}
+                </time>
+              </div>
             </article>
           </li>
         ))

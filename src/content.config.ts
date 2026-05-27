@@ -14,16 +14,4 @@ const blog = defineCollection({
   }),
 });
 
-const directory = defineCollection({
-  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/directory' }),
-  schema: z.object({
-    practitionerName: z.string(),
-    specialty: z.enum(['Therapist', 'Life Coach', 'Fitness Instructor']),
-    bio: z.string(),
-    location: z.string(),
-    image: z.string().optional(),
-    externalWebsiteUrl: z.string().url(),
-  }),
-});
-
-export const collections = { blog, directory };
+export const collections = { blog };
