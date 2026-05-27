@@ -1,0 +1,26 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-auto border-t border-stone bg-stone/40">
+  <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <p class="font-serif text-lg font-semibold text-sage">MyGirlHub</p>
+        <p class="mt-2 max-w-sm text-sm text-ink/70">
+          A premium wellness publication for women — evidence-informed articles, practitioner
+          resources, and gentle self-care guidance.
+        </p>
+      </div>
+      <nav aria-label="Footer" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <a href="/blog/" class="text-ink/70 hover:text-sage">Blog</a>
+        <a href="/directory/" class="text-ink/70 hover:text-sage">Directory</a>
+        <a href="/disclaimer/" class="text-ink/70 hover:text-sage">Legal &amp; Disclaimers</a>
+      </nav>
+    </div>
+    <p class="mt-8 border-t border-stone pt-6 text-xs text-ink/50">
+      &copy; {year} MyGirlHub. Operated in Australia. Content is for general wellness purposes only —
+      not medical advice. See our <a href="/disclaimer/" class="underline hover:text-sage">disclaimers</a>.
+    </p>
+  </div>
+</footer>

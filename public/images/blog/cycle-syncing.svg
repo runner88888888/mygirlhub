@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Abstract cycle wellness illustration">
+  <rect width="800" height="500" fill="#FAFAF9"/>
+  <path d="M400 80 Q520 250 400 420 Q280 250 400 80" fill="none" stroke="#4D6A60" stroke-width="3" opacity="0.5"/>
+  <circle cx="400" cy="250" r="40" fill="#708A81" opacity="0.4"/>
+</svg>

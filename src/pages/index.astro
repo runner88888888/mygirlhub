@@ -1,0 +1,149 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import NewsletterCapture from '../components/NewsletterCapture.astro';
+import { getCollection } from 'astro:content';
+
+const allPosts = await getCollection('blog', ({ data }) => !data.draft);
+const featuredPosts = [...allPosts]
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 3);
+
+const practitioners = await getCollection('directory');
+const previewPractitioners = practitioners.slice(0, 3);
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString('en-AU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<BaseLayout
+  title="MyGirlHub — Wellness, Mental Health & Self-Care for Women"
+  description="A credible wellness publication for women: mental health insights, cycle syncing guides, burnout recovery, and a curated practitioner directory."
+>
+  <SiteHeader slot="header" />
+
+  <section class="border-b border-stone bg-gradient-to-b from-stone/50 to-cream">
+    <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+      <p class="text-sm font-medium uppercase tracking-widest text-sage-light">Welcome to MyGirlHub</p>
+      <h1 class="mt-4 max-w-3xl font-serif text-4xl font-semibold leading-tight text-ink sm:text-5xl lg:text-6xl">
+        Wellness that feels calm, credible, and entirely yours.
+      </h1>
+      <p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75">
+        MyGirlHub is a premium publication for women navigating mental health, hormonal wellbeing,
+        and sustainable self-care — without hustle culture, shame, or sensationalism.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-4">
+        <a
+          href="/blog/"
+          class="inline-flex items-center rounded-xl bg-sage px-6 py-3 text-sm font-semibold text-cream transition hover:bg-sage-dark"
+        >
+          Explore articles
+        </a>
+        <a
+          href="/directory/"
+          class="inline-flex items-center rounded-xl border border-sage/30 bg-cream px-6 py-3 text-sm font-semibold text-sage transition hover:bg-stone/50"
+        >
+          Find a practitioner
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="featured-heading">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 id="featured-heading" class="font-serif text-3xl font-semibold text-ink">
+          Featured articles
+        </h2>
+        <p class="mt-2 text-ink/70">Evidence-informed reads on burnout, cycle syncing, and daily self-care.</p>
+      </div>
+      <a href="/blog/" class="text-sm font-semibold text-sage hover:underline">View all →</a>
+    </div>
+
+    <ul class="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        featuredPosts.map((post) => (
+          <li>
+            <article class="group flex h-full flex-col overflow-hidden rounded-2xl border border-stone bg-cream shadow-sm transition hover:border-sage/30 hover:shadow-md">
+              <div class="aspect-[16/10] bg-gradient-to-br from-sage/20 to-stone flex items-center justify-center">
+                {post.data.image ? (
+                  <img
+                    src={post.data.image}
+                    alt=""
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span class="font-serif text-4xl text-sage/40" aria-hidden="true">
+                    ✦
+                  </span>
+                )}
+              </div>
+              <div class="flex flex-1 flex-col p-6">
+                <span class="text-xs font-semibold uppercase tracking-wide text-sage-light">
+                  {post.data.category}
+                </span>
+                <h3 class="mt-2 font-serif text-xl font-semibold text-ink group-hover:text-sage">
+                  <a href={`/blog/${post.id}/`} class="after:absolute after:inset-0 relative">
+                    {post.data.title}
+                  </a>
+                </h3>
+                <p class="mt-2 flex-1 text-sm leading-relaxed text-ink/70 line-clamp-3">
+                  {post.data.description}
+                </p>
+                <time datetime={post.data.pubDate.toISOString()} class="mt-4 text-xs text-ink/50">
+                  {formatDate(post.data.pubDate)}
+                </time>
+              </div>
+            </article>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="bg-stone/30 py-16" aria-labelledby="directory-preview-heading">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 id="directory-preview-heading" class="font-serif text-3xl font-semibold text-ink">
+            Wellness directory
+          </h2>
+          <p class="mt-2 max-w-xl text-ink/70">
+            Trusted therapists, coaches, and movement guides — many based in Australia.
+          </p>
+        </div>
+        <a href="/directory/" class="text-sm font-semibold text-sage hover:underline">Browse directory →</a>
+      </div>
+
+      <ul class="mt-10 grid gap-6 md:grid-cols-3">
+        {
+          previewPractitioners.map((entry) => (
+            <li class="rounded-2xl border border-stone bg-cream p-6">
+              <p class="text-xs font-semibold uppercase tracking-wide text-sage-light">
+                {entry.data.specialty}
+              </p>
+              <h3 class="mt-2 font-serif text-lg font-semibold text-ink">
+                {entry.data.practitionerName}
+              </h3>
+              <p class="mt-1 text-sm text-ink/60">{entry.data.location}</p>
+              <p class="mt-3 text-sm leading-relaxed text-ink/75 line-clamp-3">{entry.data.bio}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+    <NewsletterCapture />
+  </section>
+
+  <SiteFooter slot="footer" />
+</BaseLayout>

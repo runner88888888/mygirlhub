@@ -1,0 +1,116 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import { getCollection } from 'astro:content';
+
+const categories = ['All', 'Mental Health', 'Cycle Syncing', 'Burnout'] as const;
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString('en-AU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<BaseLayout
+  title="Blog — MyGirlHub"
+  description="Wellness articles on mental health, cycle syncing, burnout recovery, and self-care for women."
+>
+  <SiteHeader slot="header" />
+
+  <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+    <header class="max-w-2xl">
+      <h1 class="font-serif text-4xl font-semibold text-ink">The MyGirlHub Journal</h1>
+      <p class="mt-4 text-lg text-ink/75">
+        Calm, scannable guidance for your body, mind, and daily rhythms.
+      </p>
+    </header>
+
+    <div class="mt-10 flex flex-wrap gap-2" role="group" aria-label="Filter by category" id="category-filters">
+      {
+        categories.map((cat) => (
+          <button
+            type="button"
+            data-category={cat}
+            class:list={[
+              'rounded-full border px-4 py-2 text-sm font-medium transition',
+              cat === 'All'
+                ? 'border-sage bg-sage text-cream'
+                : 'border-stone bg-cream text-ink/70 hover:border-sage/40 hover:text-sage',
+            ]}
+          >
+            {cat}
+          </button>
+        ))
+      }
+    </div>
+
+    <ul class="mt-12 grid gap-8 sm:grid-cols-2" id="post-list">
+      {
+        posts.map((post) => (
+          <li data-category={post.data.category}>
+            <article class="flex h-full flex-col rounded-2xl border border-stone bg-cream p-6 transition hover:border-sage/30">
+              <span class="text-xs font-semibold uppercase tracking-wide text-sage-light">
+                {post.data.category}
+              </span>
+              <h2 class="mt-2 font-serif text-2xl font-semibold text-ink">
+                <a href={`/blog/${post.id}/`} class="hover:text-sage">
+                  {post.data.title}
+                </a>
+              </h2>
+              <p class="mt-3 flex-1 text-sm leading-relaxed text-ink/75">{post.data.description}</p>
+              <time datetime={post.data.pubDate.toISOString()} class="mt-4 block text-xs text-ink/50">
+                {formatDate(post.data.pubDate)}
+              </time>
+            </article>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p id="no-posts" class="mt-12 hidden text-center text-ink/60" role="status">
+      No articles in this category yet.
+    </p>
+  </div>
+
+  <SiteFooter slot="footer" />
+</BaseLayout>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>('#category-filters button');
+  const items = document.querySelectorAll<HTMLLIElement>('#post-list li');
+  const empty = document.getElementById('no-posts');
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const selected = btn.dataset.category ?? 'All';
+
+      buttons.forEach((b) => {
+        const active = b === btn;
+        b.classList.toggle('border-sage', active);
+        b.classList.toggle('bg-sage', active);
+        b.classList.toggle('text-cream', active);
+        b.classList.toggle('border-stone', !active);
+        b.classList.toggle('bg-cream', !active);
+        b.classList.toggle('text-ink/70', !active);
+        b.setAttribute('aria-pressed', String(active));
+      });
+
+      let visible = 0;
+      items.forEach((item) => {
+        const match = selected === 'All' || item.dataset.category === selected;
+        item.classList.toggle('hidden', !match);
+        if (match) visible++;
+      });
+
+      empty?.classList.toggle('hidden', visible > 0);
+    });
+  });
+</script>

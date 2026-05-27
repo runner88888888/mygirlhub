@@ -1,0 +1,3 @@
+# MyGirlHub static site (Astro build output)
+DirectoryIndex index.html
+Options -Indexes

@@ -1,0 +1,88 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+---
+
+<BaseLayout
+  title="Legal & Disclaimers — MyGirlHub"
+  description="Medical disclaimer, Australian ABN operation statement, and affiliate marketing disclosures for MyGirlHub."
+>
+  <SiteHeader slot="header" />
+
+  <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:py-16">
+    <h1 class="font-serif text-4xl font-semibold text-ink">Legal &amp; disclaimers</h1>
+    <p class="mt-4 text-ink/75">Last updated: May 2026</p>
+
+    <div class="mt-12 space-y-12 text-ink/85">
+      <section aria-labelledby="medical-disclaimer">
+        <h2 id="medical-disclaimer" class="font-serif text-2xl font-semibold text-ink">
+          Medical disclaimer
+        </h2>
+        <div class="mt-4 space-y-4 text-sm leading-relaxed sm:text-base">
+          <p>
+            MyGirlHub publishes general wellness, mental health, and self-care information intended
+            for educational purposes only. We are not a medical practice, emergency service, or
+            licensed healthcare provider.
+          </p>
+          <p>
+            Nothing on this website constitutes medical advice, diagnosis, or treatment. Always seek
+            the advice of your physician, psychologist, or other qualified health provider with any
+            questions regarding a medical or mental health condition. Never disregard professional
+            advice or delay seeking it because of something you have read on MyGirlHub.
+          </p>
+          <p>
+            If you are in crisis or may harm yourself or others, call <strong>000</strong> (Australia)
+            or contact Lifeline on <strong>13 11 14</strong> immediately.
+          </p>
+        </div>
+      </section>
+
+      <section aria-labelledby="abn-statement">
+        <h2 id="abn-statement" class="font-serif text-2xl font-semibold text-ink">
+          Australian business operation (ABN)
+        </h2>
+        <div class="mt-4 space-y-4 text-sm leading-relaxed sm:text-base">
+          <p>
+            MyGirlHub is operated as an Australian business registered under an Australian Business
+            Number (ABN). This site provides editorial content and directory listings only — there are
+            no user accounts, no member logins, and no databases storing personal user profiles on
+            this platform.
+          </p>
+          <p>
+            Newsletter and contact forms, when connected to third-party services, will be governed by
+            those providers' privacy policies. We design this property to remain lightweight and
+            compliant with Australian privacy expectations for informational publishers.
+          </p>
+          <p class="text-ink/60 text-sm">
+            <em>Placeholder:</em> Insert your registered ABN and trading name on your live deployment.
+          </p>
+        </div>
+      </section>
+
+      <section aria-labelledby="affiliate-disclosure">
+        <h2 id="affiliate-disclosure" class="font-serif text-2xl font-semibold text-ink">
+          Amazon &amp; affiliate marketing disclosure
+        </h2>
+        <div class="mt-4 space-y-4 text-sm leading-relaxed sm:text-base">
+          <p>
+            MyGirlHub may participate in affiliate programs, including the Amazon Associates Program
+            and similar wellness or book retailers. When you click certain links and make a purchase,
+            we may earn a commission at no additional cost to you.
+          </p>
+          <p>
+            Affiliate relationships do not influence our editorial standards. We only recommend
+            products or resources we believe may genuinely support women's wellness, and we clearly
+            label sponsored or affiliate content where applicable.
+          </p>
+          <p>
+            As an Amazon Associate, we earn from qualifying purchases. Product names, logos, and
+            brands are property of their respective owners.
+          </p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <SiteFooter slot="footer" />
+</BaseLayout>

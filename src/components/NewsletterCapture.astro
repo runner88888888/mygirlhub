@@ -1,0 +1,39 @@
+---
+
+---
+
+<section
+  class="rounded-2xl border border-sage/15 bg-gradient-to-br from-sage/10 to-stone/60 p-8 sm:p-10"
+  aria-labelledby="newsletter-heading"
+>
+  <h2 id="newsletter-heading" class="font-serif text-2xl font-semibold text-ink sm:text-3xl">
+    Gentle reminders in your inbox
+  </h2>
+  <p class="mt-2 max-w-xl text-sm leading-relaxed text-ink/75 sm:text-base">
+    Join our newsletter for curated wellness reads, cycle-syncing tips, and burnout recovery
+    micro-practices. No spam — unsubscribe anytime. (Front-end preview only; no data is stored.)
+  </p>
+  <form
+    class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end"
+    onsubmit="event.preventDefault(); alert('Thank you! Newsletter signup is a front-end placeholder — connect your email provider when ready.');"
+  >
+    <div class="flex-1">
+      <label for="newsletter-email" class="sr-only">Email address</label>
+      <input
+        id="newsletter-email"
+        name="email"
+        type="email"
+        required
+        autocomplete="email"
+        placeholder="you@example.com"
+        class="w-full rounded-xl border border-stone bg-cream px-4 py-3 text-sm text-ink placeholder:text-ink/40 focus:border-sage focus:ring-2 focus:ring-sage/20"
+      />
+    </div>
+    <button
+      type="submit"
+      class="rounded-xl bg-sage px-6 py-3 text-sm font-semibold text-cream transition hover:bg-sage-dark focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
+    >
+      Subscribe
+    </button>
+  </form>
+</section>

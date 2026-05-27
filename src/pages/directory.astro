@@ -1,0 +1,117 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import { getCollection } from 'astro:content';
+
+const specialties = ['All', 'Therapist', 'Life Coach', 'Fitness Instructor'] as const;
+const practitioners = await getCollection('directory');
+---
+
+<BaseLayout
+  title="Wellness Directory — MyGirlHub"
+  description="Find therapists, life coaches, and fitness instructors supporting women's wellness across Australia and beyond."
+>
+  <SiteHeader slot="header" />
+
+  <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+    <header class="max-w-2xl">
+      <h1 class="font-serif text-4xl font-semibold text-ink">Wellness practitioner directory</h1>
+      <p class="mt-4 text-lg text-ink/75">
+        Independent listings for educational purposes. Always verify credentials and fit before booking.
+      </p>
+    </header>
+
+    <div
+      class="mt-10 flex flex-wrap gap-2"
+      role="group"
+      aria-label="Filter by specialty"
+      id="specialty-filters"
+    >
+      {
+        specialties.map((spec) => (
+          <button
+            type="button"
+            data-specialty={spec}
+            class:list={[
+              'rounded-full border px-4 py-2 text-sm font-medium transition',
+              spec === 'All'
+                ? 'border-sage bg-sage text-cream'
+                : 'border-stone bg-cream text-ink/70 hover:border-sage/40 hover:text-sage',
+            ]}
+          >
+            {spec}
+          </button>
+        ))
+      }
+    </div>
+
+    <ul class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" id="practitioner-list">
+      {
+        practitioners.map((entry) => (
+          <li data-specialty={entry.data.specialty}>
+            <article class="flex h-full flex-col rounded-2xl border border-stone bg-cream p-6 shadow-sm transition hover:border-sage/25">
+              <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-sage/15 font-serif text-xl text-sage">
+                {entry.data.practitionerName.charAt(0)}
+              </div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-sage-light">
+                {entry.data.specialty}
+              </p>
+              <h2 class="mt-2 font-serif text-xl font-semibold text-ink">{entry.data.practitionerName}</h2>
+              <p class="mt-1 text-sm text-ink/60">{entry.data.location}</p>
+              <p class="mt-4 flex-1 text-sm leading-relaxed text-ink/75">{entry.data.bio}</p>
+              <a
+                href={entry.data.externalWebsiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="mt-6 inline-flex items-center text-sm font-semibold text-sage hover:underline"
+              >
+                Visit website
+                <span class="sr-only"> (opens in new tab) for {entry.data.practitionerName}</span>
+                <span aria-hidden="true" class="ml-1">↗</span>
+              </a>
+            </article>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p id="no-practitioners" class="mt-12 hidden text-center text-ink/60" role="status">
+      No practitioners listed for this specialty yet.
+    </p>
+  </div>
+
+  <SiteFooter slot="footer" />
+</BaseLayout>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>('#specialty-filters button');
+  const cards = document.querySelectorAll<HTMLLIElement>('#practitioner-list li');
+  const empty = document.getElementById('no-practitioners');
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const selected = btn.dataset.specialty ?? 'All';
+
+      buttons.forEach((b) => {
+        const active = b === btn;
+        b.classList.toggle('border-sage', active);
+        b.classList.toggle('bg-sage', active);
+        b.classList.toggle('text-cream', active);
+        b.classList.toggle('border-stone', !active);
+        b.classList.toggle('bg-cream', !active);
+        b.classList.toggle('text-ink/70', !active);
+        b.setAttribute('aria-pressed', String(active));
+      });
+
+      let visible = 0;
+      cards.forEach((card) => {
+        const match = selected === 'All' || card.dataset.specialty === selected;
+        card.classList.toggle('hidden', !match);
+        if (match) visible++;
+      });
+
+      empty?.classList.toggle('hidden', visible > 0);
+    });
+  });
+</script>
