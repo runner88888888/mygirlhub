@@ -9,6 +9,10 @@ export const images = {
       'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&q=80',
     selfCare:
       'https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=800&q=80',
+    smartHomeWellness: '/images/blog/smart-home-wellness-hero.png',
+  },
+  og: {
+    smartHomeWellness: '/images/blog/smart-home-wellness-og.png',
   },
   shop: {
     planner:

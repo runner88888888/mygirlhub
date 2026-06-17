@@ -8,8 +8,9 @@ const blog = defineCollection({
     title: z.string(),
     description: z.string(),
     pubDate: z.coerce.date(),
-    category: z.enum(['Mental Health', 'Cycle Syncing', 'Burnout']),
+    category: z.enum(['Mental Health', 'Cycle Syncing', 'Burnout', 'Smart Home Wellness']),
     image: z.string().optional(),
+    ogImage: z.string().optional(),
     draft: z.boolean().default(false),
   }),
 });

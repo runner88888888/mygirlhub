@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Smart AI home wellness kitchen illustration">
+  <rect width="800" height="500" fill="#F5F5F4"/>
+  <rect x="120" y="80" width="280" height="340" rx="20" fill="#4D6A60" opacity="0.12"/>
+  <rect x="160" y="120" width="200" height="260" rx="12" fill="#708A81" opacity="0.25"/>
+  <rect x="400" y="140" width="280" height="200" rx="24" fill="#4D6A60" opacity="0.18"/>
+  <circle cx="540" cy="200" r="40" fill="#708A81" opacity="0.35"/>
+  <rect x="460" y="260" width="160" height="12" rx="6" fill="#4D6A60" opacity="0.2"/>
+  <rect x="480" y="290" width="120" height="8" rx="4" fill="#708A81" opacity="0.15"/>
+</svg>

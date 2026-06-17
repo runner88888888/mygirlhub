@@ -4,10 +4,21 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description?: string;
+  ogImage?: string;
+  ogType?: string;
 }
 
-const { title, description = 'MyGirlHub — Wellness, mental health, and self-care for women.' } = Astro.props;
+const {
+  title,
+  description = 'MyGirlHub — Wellness, mental health, and self-care for women.',
+  ogImage,
+  ogType = 'website',
+} = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://mygirlhub.com');
+const siteOrigin = Astro.site ?? 'https://mygirlhub.com';
+const ogImageURL = ogImage
+  ? new URL(ogImage.startsWith('http') ? ogImage : ogImage, siteOrigin).href
+  : new URL('/images/blog/smart-home-wellness-og.png', siteOrigin).href;
 ---
 
 <!doctype html>
@@ -20,6 +31,19 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://mygirlhu
     <link rel="canonical" href={canonicalURL} />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="MyGirlHub" />
+    <meta property="og:locale" content="en_AU" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL} />
   </head>
   <body class="min-h-screen flex flex-col">
     <a
