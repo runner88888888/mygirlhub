@@ -3,7 +3,7 @@ title: "5 Self-Care Micro-Habits for Busy Women"
 description: "Two-minute rituals — morning sunlight, magnesium before bed, habit stacking — plus editor-tested supplements and blue-light tools."
 pubDate: 2026-05-20
 category: Mental Health
-image: "https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=800&q=80"
+image: "/images/blog/micro-habits-hero.png"
 draft: false
 ---
 
