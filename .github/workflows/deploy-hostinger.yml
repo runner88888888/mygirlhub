@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+env:
+  # Hostinger shared hosting uses 65002; VPS typically uses 22 (override via secret).
+  DEFAULT_SSH_PORT: 65002
+
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
@@ -38,16 +42,55 @@ jobs:
       - name: Verify build output
         run: |
           test -f dist/index.html || (echo "::error::dist/index.html missing after build" && exit 1)
+          test -f dist/sitemap-index.xml || (echo "::error::dist/sitemap-index.xml missing after build" && exit 1)
           echo "Build OK — $(find dist -type f | wc -l) files ready to deploy"
-      - name: Deploy dist to Hostinger via SSH
-        uses: easingthemes/ssh-deploy@v6.0.3
-        with:
+      - name: Deploy dist to Hostinger via rsync
+        env:
           SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
           REMOTE_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
           REMOTE_USER: ${{ secrets.HOSTINGER_SSH_USER }}
-          REMOTE_PORT: ${{ secrets.HOSTINGER_SSH_PORT || '22' }}
-          SOURCE: dist/
-          TARGET: domains/mygirlhub.com/public_html/
-          ARGS: -avz --delete
-          SCRIPT_AFTER: |
-            ls -la domains/mygirlhub.com/public_html/index.html
+          REMOTE_PORT: ${{ secrets.HOSTINGER_SSH_PORT || env.DEFAULT_SSH_PORT }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          # Write key with Unix line endings and a trailing newline (required by OpenSSH).
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/deploy_key; then
+            echo "::error::HOSTINGER_SSH_PRIVATE_KEY must include -----BEGIN ... PRIVATE KEY----- lines"
+            exit 1
+          fi
+
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub 2>/dev/null; then
+            echo "::error::Private key is invalid or passphrase-protected. Use a deploy key with no passphrase."
+            exit 1
+          fi
+
+          echo "Deploy public key fingerprint:"
+          ssh-keygen -lf ~/.ssh/deploy_key.pub
+
+          ssh-keyscan -p "$REMOTE_PORT" "$REMOTE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          echo "Testing SSH authentication..."
+          if ! ssh -p "$REMOTE_PORT" -i ~/.ssh/deploy_key \
+            -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no \
+            "$REMOTE_USER@$REMOTE_HOST" "echo 'SSH OK' && pwd"; then
+            echo "::error::SSH authentication failed."
+            echo "::error::1) In Hostinger hPanel → Advanced → SSH Access → SSH Keys, import the public key above."
+            echo "::error::2) Re-paste the matching private key into GitHub secret HOSTINGER_SSH_PRIVATE_KEY."
+            echo "::error::3) Confirm HOSTINGER_SSH_USER, HOSTINGER_SSH_HOST, and HOSTINGER_SSH_PORT ($REMOTE_PORT)."
+            exit 1
+          fi
+
+          echo "Syncing dist/ to domains/mygirlhub.com/public_html/ ..."
+          rsync -avz --delete \
+            -e "ssh -p $REMOTE_PORT -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            dist/ "$REMOTE_USER@$REMOTE_HOST:domains/mygirlhub.com/public_html/"
+
+          ssh -p "$REMOTE_PORT" -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "$REMOTE_USER@$REMOTE_HOST" \
+            "ls -la domains/mygirlhub.com/public_html/index.html domains/mygirlhub.com/public_html/sitemap-index.xml"
