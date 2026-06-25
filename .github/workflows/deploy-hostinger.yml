@@ -46,7 +46,6 @@ jobs:
           echo "Build OK — $(find dist -type f | wc -l) files ready to deploy"
       - name: Deploy dist to Hostinger via rsync
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
           REMOTE_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
           REMOTE_USER: ${{ secrets.HOSTINGER_SSH_USER }}
           REMOTE_PORT: ${{ secrets.HOSTINGER_SSH_PORT || env.DEFAULT_SSH_PORT }}
@@ -56,17 +55,35 @@ jobs:
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          # Write key with Unix line endings and a trailing newline (required by OpenSSH).
-          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          # Inject the secret directly in the script (not via env:) so multiline keys keep newlines.
+          umask 177
+          echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          sed -i 's/\r$//' ~/.ssh/deploy_key
+
+          # GitHub secret pasted as one line with literal \n characters
+          if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/deploy_key; then
+            printf '%b\n' "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            sed -i 's/\r$//' ~/.ssh/deploy_key
+          fi
 
           if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/deploy_key; then
             echo "::error::HOSTINGER_SSH_PRIVATE_KEY must include -----BEGIN ... PRIVATE KEY----- lines"
+            echo "Key file has $(wc -l < ~/.ssh/deploy_key) line(s)."
             exit 1
           fi
 
-          if ! ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub 2>/dev/null; then
-            echo "::error::Private key is invalid or passphrase-protected. Use a deploy key with no passphrase."
+          if [ -n "$(tail -c 1 ~/.ssh/deploy_key 2>/dev/null || true)" ]; then
+            echo >> ~/.ssh/deploy_key
+          fi
+
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub; then
+            echo "::error::Could not read private key from GitHub secret."
+            echo "Key file has $(wc -l < ~/.ssh/deploy_key) line(s)."
+            echo "First line: $(head -1 ~/.ssh/deploy_key)"
+            echo "Last line: $(tail -1 ~/.ssh/deploy_key)"
+            echo "::error::Re-copy the private key with: Get-Content \$env:USERPROFILE\\.ssh\\mygirlhub_deploy -Raw"
             exit 1
           fi
 
