@@ -21,8 +21,8 @@ jobs:
       - name: Verify Hostinger deploy secrets
         run: |
           missing=0
-          if [ -z "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" ]; then
-            echo "::error::Missing repository secret HOSTINGER_SSH_PRIVATE_KEY"
+          if [ -z "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" ] && [ -z "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" ]; then
+            echo "::error::Set HOSTINGER_SSH_PRIVATE_KEY_B64 (recommended) or HOSTINGER_SSH_PRIVATE_KEY"
             missing=1
           fi
           if [ -z "${{ secrets.HOSTINGER_SSH_HOST }}" ]; then
@@ -44,6 +44,49 @@ jobs:
           test -f dist/index.html || (echo "::error::dist/index.html missing after build" && exit 1)
           test -f dist/sitemap-index.xml || (echo "::error::dist/sitemap-index.xml missing after build" && exit 1)
           echo "Build OK — $(find dist -type f | wc -l) files ready to deploy"
+      - name: Setup SSH agent
+        run: |
+          set -euo pipefail
+
+          eval "$(ssh-agent -s)"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          umask 177
+
+          if [ -n "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" ]; then
+            echo "Loading deploy key from HOSTINGER_SSH_PRIVATE_KEY_B64"
+            echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" | tr -d '[:space:]' | base64 -d > ~/.ssh/deploy_key
+          else
+            echo "Loading deploy key from HOSTINGER_SSH_PRIVATE_KEY"
+            echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          fi
+
+          chmod 600 ~/.ssh/deploy_key
+          sed -i 's/\r$//' ~/.ssh/deploy_key
+          if [ -n "$(tail -c 1 ~/.ssh/deploy_key 2>/dev/null || true)" ]; then
+            echo >> ~/.ssh/deploy_key
+          fi
+
+          echo "Key file lines: $(wc -l < ~/.ssh/deploy_key)"
+          echo "First line: $(head -1 ~/.ssh/deploy_key)"
+          echo "Last line: $(tail -1 ~/.ssh/deploy_key)"
+
+          if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/deploy_key; then
+            echo "::error::Deploy key is malformed. Use HOSTINGER_SSH_PRIVATE_KEY_B64 instead."
+            exit 1
+          fi
+
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub; then
+            echo "::error::Deploy key is invalid. Add HOSTINGER_SSH_PRIVATE_KEY_B64 (see deploy workflow)."
+            exit 1
+          fi
+
+          ssh-add ~/.ssh/deploy_key
+          echo "Deploy public key fingerprint:"
+          ssh-keygen -lf ~/.ssh/deploy_key.pub
       - name: Deploy dist to Hostinger via rsync
         env:
           REMOTE_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
@@ -52,62 +95,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-
-          # Inject the secret directly in the script (not via env:) so multiline keys keep newlines.
-          umask 177
-          echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          sed -i 's/\r$//' ~/.ssh/deploy_key
-
-          # GitHub secret pasted as one line with literal \n characters
-          if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/deploy_key; then
-            printf '%b\n' "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-            chmod 600 ~/.ssh/deploy_key
-            sed -i 's/\r$//' ~/.ssh/deploy_key
-          fi
-
-          if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/deploy_key; then
-            echo "::error::HOSTINGER_SSH_PRIVATE_KEY must include -----BEGIN ... PRIVATE KEY----- lines"
-            echo "Key file has $(wc -l < ~/.ssh/deploy_key) line(s)."
-            exit 1
-          fi
-
-          if [ -n "$(tail -c 1 ~/.ssh/deploy_key 2>/dev/null || true)" ]; then
-            echo >> ~/.ssh/deploy_key
-          fi
-
-          if ! ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub; then
-            echo "::error::Could not read private key from GitHub secret."
-            echo "Key file has $(wc -l < ~/.ssh/deploy_key) line(s)."
-            echo "First line: $(head -1 ~/.ssh/deploy_key)"
-            echo "Last line: $(tail -1 ~/.ssh/deploy_key)"
-            echo "::error::Re-copy the private key with: Get-Content \$env:USERPROFILE\\.ssh\\mygirlhub_deploy -Raw"
-            exit 1
-          fi
-
-          echo "Deploy public key fingerprint:"
-          ssh-keygen -lf ~/.ssh/deploy_key.pub
-
           ssh-keyscan -p "$REMOTE_PORT" "$REMOTE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
           echo "Testing SSH authentication..."
-          if ! ssh -p "$REMOTE_PORT" -i ~/.ssh/deploy_key \
+          if ! ssh -p "$REMOTE_PORT" \
             -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no \
             "$REMOTE_USER@$REMOTE_HOST" "echo 'SSH OK' && pwd"; then
             echo "::error::SSH authentication failed."
-            echo "::error::1) In Hostinger hPanel → Advanced → SSH Access → SSH Keys, import the public key above."
-            echo "::error::2) Re-paste the matching private key into GitHub secret HOSTINGER_SSH_PRIVATE_KEY."
-            echo "::error::3) Confirm HOSTINGER_SSH_USER, HOSTINGER_SSH_HOST, and HOSTINGER_SSH_PORT ($REMOTE_PORT)."
+            echo "::error::Confirm the public key fingerprint above is in Hostinger hPanel → SSH Keys."
             exit 1
           fi
 
           echo "Syncing dist/ to domains/mygirlhub.com/public_html/ ..."
           rsync -avz --delete \
-            -e "ssh -p $REMOTE_PORT -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            -e "ssh -p $REMOTE_PORT -o StrictHostKeyChecking=no" \
             dist/ "$REMOTE_USER@$REMOTE_HOST:domains/mygirlhub.com/public_html/"
 
-          ssh -p "$REMOTE_PORT" -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ssh -p "$REMOTE_PORT" -o StrictHostKeyChecking=no \
             "$REMOTE_USER@$REMOTE_HOST" \
             "ls -la domains/mygirlhub.com/public_html/index.html domains/mygirlhub.com/public_html/sitemap-index.xml"
