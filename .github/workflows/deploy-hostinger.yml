@@ -35,13 +35,6 @@ jobs:
           if [ "$missing" -eq 1 ]; then
             exit 1
           fi
-      - name: Choose SSH key source
-        run: |
-          if [ -n "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" ]; then
-            echo "USE_B64=1" >> "$GITHUB_ENV"
-          else
-            echo "USE_B64=0" >> "$GITHUB_ENV"
-          fi
       - run: npm ci
       - run: npm run build
       - name: Verify build output
@@ -49,26 +42,30 @@ jobs:
           test -f dist/index.html
           test -f dist/sitemap-index.xml
           echo "Build OK — $(find dist -type f | wc -l) files ready to deploy"
-      - name: Setup SSH from base64 secret
-        if: env.USE_B64 == '1'
+      - name: Setup deploy key
         run: |
           set -eo pipefail
-          eval "$(ssh-agent -s)"
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
-          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" | tr -d '[:space:]' | base64 --decode > ~/.ssh/deploy_key
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          umask 177
+
+          if [ -n "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" ]; then
+            echo "Using HOSTINGER_SSH_PRIVATE_KEY_B64"
+            echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" | tr -d '[:space:]' | base64 --decode > ~/.ssh/deploy_key
+          else
+            echo "Using HOSTINGER_SSH_PRIVATE_KEY"
+            echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+            sed -i 's/\r$//' ~/.ssh/deploy_key
+          fi
+
           chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
-          ssh-add ~/.ssh/deploy_key
-          echo "Deploy key loaded from base64 secret:"
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub; then
+            echo "::error::Deploy key is invalid — re-create HOSTINGER_SSH_PRIVATE_KEY_B64 from mygirlhub_deploy"
+            exit 1
+          fi
+
+          echo "Deploy key fingerprint (must match Hostinger):"
           ssh-keygen -lf ~/.ssh/deploy_key.pub
-      - name: Setup SSH from raw secret
-        if: env.USE_B64 == '0'
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
-          log-public-key: true
       - name: Deploy dist to Hostinger via rsync
         env:
           REMOTE_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
@@ -76,13 +73,19 @@ jobs:
           REMOTE_PORT: ${{ secrets.HOSTINGER_SSH_PORT || env.DEFAULT_SSH_PORT }}
         run: |
           set -eo pipefail
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+
+          SSH_CMD="ssh -p ${REMOTE_PORT} -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           ssh-keyscan -p "$REMOTE_PORT" "$REMOTE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          ssh -p "$REMOTE_PORT" -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no \
-            "$REMOTE_USER@$REMOTE_HOST" "echo 'SSH OK' && pwd"
+
+          echo "Connecting as ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PORT}"
+          $SSH_CMD "$REMOTE_USER@$REMOTE_HOST" "echo 'SSH OK' && pwd"
+
           rsync -avz --delete \
-            -e "ssh -p $REMOTE_PORT -o StrictHostKeyChecking=no" \
+            -e "$SSH_CMD" \
             dist/ "$REMOTE_USER@$REMOTE_HOST:domains/mygirlhub.com/public_html/"
-          ssh -p "$REMOTE_PORT" -o StrictHostKeyChecking=no \
-            "$REMOTE_USER@$REMOTE_HOST" \
+
+          $SSH_CMD "$REMOTE_USER@$REMOTE_HOST" \
             "ls -la domains/mygirlhub.com/public_html/index.html domains/mygirlhub.com/public_html/sitemap-index.xml"
