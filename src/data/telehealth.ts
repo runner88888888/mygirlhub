@@ -27,7 +27,7 @@ export const telehealthPartners: TelehealthPartner[] = [
       'Switch therapists if the fit is not right',
     ],
     image:
-      'https://images.unsplash.com/photo-1573497019940-88c009e05fda?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
     imageAlt: 'Professional woman in a supportive therapy conversation',
     ctaLabel: 'Get started with BetterHelp',
     ctaHref: `https://www.betterhelp.com/get-started/?utm_source=affiliate&utm_medium=referral&utm_campaign=${AFFILIATE_TAG}`,

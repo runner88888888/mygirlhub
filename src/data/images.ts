@@ -19,7 +19,7 @@ export const images = {
       'https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=600&q=80',
     book: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
     therapy:
-      'https://images.unsplash.com/photo-1573497019940-88c009e05fda?auto=format&fit=crop&w=600&q=80',
+      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
     selfCareKit:
       'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80',
   },
