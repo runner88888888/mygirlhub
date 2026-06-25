@@ -35,6 +35,13 @@ jobs:
           if [ "$missing" -eq 1 ]; then
             exit 1
           fi
+      - name: Choose SSH key source
+        run: |
+          if [ -n "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 }}" ]; then
+            echo "USE_B64=1" >> "$GITHUB_ENV"
+          else
+            echo "USE_B64=0" >> "$GITHUB_ENV"
+          fi
       - run: npm ci
       - run: npm run build
       - name: Verify build output
@@ -43,8 +50,7 @@ jobs:
           test -f dist/sitemap-index.xml
           echo "Build OK — $(find dist -type f | wc -l) files ready to deploy"
       - name: Setup SSH from base64 secret
-        id: ssh_b64
-        if: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 != '' }}
+        if: env.USE_B64 == '1'
         run: |
           set -eo pipefail
           eval "$(ssh-agent -s)"
@@ -58,7 +64,7 @@ jobs:
           echo "Deploy key loaded from base64 secret:"
           ssh-keygen -lf ~/.ssh/deploy_key.pub
       - name: Setup SSH from raw secret
-        if: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY_B64 == '' }}
+        if: env.USE_B64 == '0'
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
